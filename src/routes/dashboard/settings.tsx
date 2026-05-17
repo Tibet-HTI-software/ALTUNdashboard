@@ -16,7 +16,7 @@ import { useTheme } from "@/lib/dashboard/theme";
 import { LANGUAGES, useLanguage } from "@/lib/dashboard/language";
 import { useDemurrageThresholds } from "@/lib/dashboard/demurrage";
 import { useRole, getRoleMeta } from "@/lib/dashboard/role";
-import { useT } from "@/lib/dashboard/i18n";
+import { useT, type I18nKey } from "@/lib/dashboard/i18n";
 import { demoSuccess } from "@/lib/dashboard/demo";
 
 export const Route = createFileRoute("/dashboard/settings")({
@@ -26,11 +26,19 @@ export const Route = createFileRoute("/dashboard/settings")({
 
 type TabId = "profile" | "preferences" | "automation" | "api";
 
-const TABS: { id: TabId; label: string; icon: typeof User }[] = [
-  { id: "profile", label: "Profile", icon: User },
-  { id: "preferences", label: "Preferences", icon: SlidersHorizontal },
-  { id: "automation", label: "Automation Rules", icon: AlarmClock },
-  { id: "api", label: "API Connections", icon: Database },
+const TABS: { id: TabId; labelKey: I18nKey; icon: typeof User }[] = [
+  { id: "profile", labelKey: "settings.tabs.profile", icon: User },
+  {
+    id: "preferences",
+    labelKey: "settings.tabs.preferences",
+    icon: SlidersHorizontal,
+  },
+  {
+    id: "automation",
+    labelKey: "settings.tabs.automation",
+    icon: AlarmClock,
+  },
+  { id: "api", labelKey: "settings.tabs.api", icon: Database },
 ];
 
 function SettingsPage() {
@@ -67,7 +75,7 @@ function SettingsPage() {
                 )}
               >
                 <Icon className="h-4 w-4 shrink-0" />
-                {tb.label}
+                {t(tb.labelKey)}
               </button>
             );
           })}
@@ -121,13 +129,14 @@ function Card({
 /* ── Profile ──────────────────────────────────────────────── */
 
 function ProfileTab() {
+  const t = useT();
   const { role } = useRole();
   const meta = getRoleMeta(role);
   return (
     <Card
       icon={User}
-      title="Profile"
-      description="Your account identity within the operations workspace."
+      title={t("settings.tabs.profile")}
+      description={t("settings.profile.desc")}
     >
       <div className="flex items-center gap-4">
         <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand to-brand-strong text-white font-display font-bold text-lg shadow-[0_6px_20px_-8px_var(--brand)]">
@@ -141,10 +150,16 @@ function ProfileTab() {
         </div>
       </div>
       <dl className="mt-4 grid grid-cols-2 gap-3">
-        <Field label="Workspace" value="Altun Logistics Operations" />
-        <Field label="Active role" value={meta.label} />
-        <Field label="Region" value="Rotterdam · Antwerp" />
-        <Field label="Member since" value="2024" />
+        <Field
+          label={t("settings.profile.workspace")}
+          value="Altun Logistics Operations"
+        />
+        <Field label={t("settings.profile.activeRole")} value={meta.label} />
+        <Field
+          label={t("settings.profile.region")}
+          value="Rotterdam · Antwerp"
+        />
+        <Field label={t("settings.profile.since")} value="2024" />
       </dl>
     </Card>
   );
@@ -170,8 +185,8 @@ function PreferencesTab() {
   return (
     <Card
       icon={theme === "dark" ? Moon : Sun}
-      title="Preferences"
-      description="Appearance and interface language. Synced with the sidebar."
+      title={t("settings.tabs.preferences")}
+      description={t("settings.prefs.desc")}
     >
       <div className="flex flex-wrap items-center justify-between gap-4">
         <button
@@ -221,15 +236,21 @@ function AutomationTab() {
   const { thresholds, setThresholds } = useDemurrageThresholds();
   const [rules, setRules] = useState([true, true, false]);
 
+  const RULE_KEYS: I18nKey[] = [
+    "settings.rule.autoScan",
+    "settings.rule.emailExporters",
+    "settings.rule.escalate",
+  ];
+
   return (
     <Card
       icon={AlarmClock}
       title={t("settings.demurrage")}
-      description="The Demurrage Danger Zone — tune when containers turn amber and red across the Overview and Planner boards. Changes apply live."
+      description={t("settings.demurrage.desc")}
     >
       <div className="space-y-5">
         <ThresholdSlider
-          label="Critical zone — turns red"
+          label={t("settings.critical.label")}
           tone="rose"
           value={thresholds.criticalH}
           min={12}
@@ -237,7 +258,7 @@ function AutomationTab() {
           onChange={(criticalH) => setThresholds({ ...thresholds, criticalH })}
         />
         <ThresholdSlider
-          label="Warning zone — turns amber"
+          label={t("settings.warning.label")}
           tone="amber"
           value={thresholds.warningH}
           min={36}
@@ -246,25 +267,16 @@ function AutomationTab() {
         />
 
         <div className="rounded-xl border border-border bg-foreground/[0.03] p-3 text-xs text-muted-foreground">
-          Containers with under{" "}
-          <span className="font-semibold text-rose-600 dark:text-rose-400">
-            {thresholds.criticalH}h
-          </span>{" "}
-          of free time show red; under{" "}
-          <span className="font-semibold text-amber-600 dark:text-amber-400">
-            {thresholds.warningH}h
-          </span>{" "}
-          show amber.
+          {t("settings.threshold.info", {
+            critical: thresholds.criticalH,
+            warning: thresholds.warningH,
+          })}
         </div>
 
         <div className="space-y-1.5">
-          {[
-            "Auto-scan new booking files for missing documents",
-            "Email exporters automatically on a customs hold",
-            "Escalate to a manager if unresolved after 24h",
-          ].map((rule, i) => (
+          {RULE_KEYS.map((key, i) => (
             <button
-              key={rule}
+              key={key}
               type="button"
               onClick={() =>
                 setRules((r) => r.map((v, j) => (j === i ? !v : v)))
@@ -272,7 +284,7 @@ function AutomationTab() {
               aria-pressed={rules[i]}
               className="w-full flex items-center justify-between gap-3 rounded-lg border border-border bg-foreground/[0.02] px-3 py-2.5 text-left hover:border-brand/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
             >
-              <span className="text-xs text-foreground">{rule}</span>
+              <span className="text-xs text-foreground">{t(key)}</span>
               <span
                 className={cn(
                   "relative h-4 w-7 rounded-full transition-colors shrink-0",
@@ -294,7 +306,10 @@ function AutomationTab() {
           <button
             type="button"
             onClick={() =>
-              demoSuccess("Rules saved", "Automation rules are stored.")
+              demoSuccess(
+                t("settings.rules.saved"),
+                t("settings.rules.savedDesc"),
+              )
             }
             className="inline-flex items-center gap-1.5 h-10 rounded-xl bg-brand text-white px-4 text-sm font-semibold hover:bg-brand-strong transition-colors shadow-[0_6px_18px_-8px_var(--brand)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
           >
@@ -356,42 +371,42 @@ function ThresholdSlider({
 /* ── API Connections ──────────────────────────────────────── */
 
 function ApiTab() {
+  const t = useT();
   return (
     <Card
       icon={Database}
-      title="API Connections"
-      description="Connect a Supabase project to swap mock data for live data. The dashboard runs fully on mock data until then."
+      title={t("settings.tabs.api")}
+      description={t("settings.api.desc")}
     >
       <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 h-7 text-[0.7rem] font-semibold text-amber-700 dark:text-amber-300">
         <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-        Not connected — running on mock data
+        {t("settings.api.notConnected")}
       </div>
       <div className="space-y-3">
         <CredField
-          label="Supabase project URL"
+          label={t("settings.api.urlLabel")}
           placeholder="https://your-project.supabase.co"
         />
         <CredField
-          label="Anon / publishable key"
-          placeholder="paste the publishable anon key"
+          label={t("settings.api.keyLabel")}
+          placeholder={t("settings.api.keyPlaceholder")}
           mono
         />
       </div>
       <p className="mt-2.5 text-[0.7rem] text-muted-foreground">
-        Never paste the service-role key here — only the publishable anon key
-        belongs on the client.
+        {t("settings.api.warning")}
       </p>
       <button
         type="button"
         onClick={() =>
           demoSuccess(
-            "Prototype",
-            "Backend connection is a placeholder in this preview.",
+            t("settings.api.protoTitle"),
+            t("settings.api.protoDesc"),
           )
         }
         className="mt-3 inline-flex items-center gap-1.5 h-9 rounded-lg border border-border bg-foreground/[0.03] px-3.5 text-sm font-medium text-foreground hover:border-brand/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
       >
-        <Plug className="h-3.5 w-3.5" /> Test connection
+        <Plug className="h-3.5 w-3.5" /> {t("settings.api.test")}
       </button>
     </Card>
   );
