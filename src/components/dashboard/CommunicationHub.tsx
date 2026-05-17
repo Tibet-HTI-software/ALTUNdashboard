@@ -1,11 +1,22 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Inbox, Loader2, Mail, Send, Sparkles } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowRight,
+  CheckCircle2,
+  Inbox,
+  Loader2,
+  Mail,
+  Send,
+  Sparkles,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { CustomerEmail, EmailIntent } from "@/lib/dashboard/api";
+import { supabase } from "@/lib/supabase";
 import { demoSuccess } from "@/lib/dashboard/demo";
 import { useUiSounds } from "@/hooks/useUiSounds";
 import { useT } from "@/lib/dashboard/i18n";
+import { useAuth } from "@/lib/auth/AuthContext";
 
 const INTENT_STYLE: Record<EmailIntent, string> = {
   "Status Update":
@@ -27,31 +38,112 @@ function timeAgo(iso: string): string {
   return `${Math.round(hrs / 24)}d ago`;
 }
 
+// ── Send state machine ─────────────────────────────────────────────────────
+
+type SendState =
+  | { status: "idle" }
+  | { status: "approving" }
+  | { status: "sent"; messageId?: string }
+  | { status: "failed"; error: string };
+
+interface SendWarningResult {
+  ok: boolean;
+  messageId?: string;
+  sentBy?: string;
+  error?: string;
+}
+
 /**
  * Customer Service hub — incoming client emails paired with AI-drafted
  * replies pre-filled with live shipment data. Master-detail layout; the
  * detail pane cross-fades (`AnimatePresence`) when a new email is picked.
+ *
+ * Send flow (real user):
+ *   1. Call `send-ai-warning` edge function with JWT — sends via Resend
+ *      and writes an immutable audit_logs row server-side.
+ *   2. Update `sendState` based on the result.
+ *
+ * Send flow (demo / mock user):
+ *   Simulates 1.5 s network delay, shows success state — no real email
+ *   sent and no audit row written (mock users have no real Supabase session).
  */
 export function CommunicationHub({ emails }: { emails: CustomerEmail[] }) {
   const [selectedId, setSelectedId] = useState<string | null>(
     emails[0]?.id ?? null,
   );
-  const [sending, setSending] = useState(false);
+  const [sendState, setSendState] = useState<SendState>({ status: "idle" });
   const { playSuccess } = useUiSounds();
   const t = useT();
+  const { user: authUser } = useAuth();
   const selected = emails.find((e) => e.id === selectedId) ?? null;
 
+  // Reset send state when a different email is selected.
+  function selectEmail(id: string) {
+    setSelectedId(id);
+    setSendState({ status: "idle" });
+  }
+
   async function handleSendReply() {
-    if (sending || !selected) return;
-    setSending(true);
-    // Simulate 1.5 s network round-trip.
-    await new Promise((r) => setTimeout(r, 1500));
-    setSending(false);
-    playSuccess();
-    demoSuccess(
-      t("comm.sentTitle"),
-      t("comm.sentDesc", { name: selected.fromName }),
-    );
+    if (sendState.status === "approving" || !selected) return;
+    setSendState({ status: "approving" });
+
+    // ── Demo / mock bypass — simulate send, skip real API calls ──────────
+    if (!authUser || authUser.mock) {
+      await new Promise((r) => setTimeout(r, 1500));
+      setSendState({ status: "sent" });
+      playSuccess();
+      demoSuccess(
+        t("comm.sentTitle"),
+        t("comm.sentDesc", { name: selected.fromName }),
+      );
+      return;
+    }
+
+    // ── Real user — call edge function ────────────────────────────────────
+    let result: SendWarningResult = { ok: false, error: "Network error." };
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const jwt = sessionData?.session?.access_token ?? "";
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+      const res = await fetch(
+        `${supabaseUrl}/functions/v1/send-ai-warning`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${jwt}`,
+          },
+          body: JSON.stringify({
+            to: selected.fromEmail,
+            subject: `Re: ${selected.subject}`,
+            body: selected.aiDraft,
+            shipmentId: selected.shipmentId,
+            aiDraftSnapshot: selected.aiDraft,
+            demurrageRisk:
+              selected.intent === "Demurrage Query" ? "warning" : "none",
+          }),
+        },
+      );
+      result = (await res.json()) as SendWarningResult;
+    } catch (err) {
+      result = {
+        ok: false,
+        error: err instanceof Error ? err.message : "Unexpected error.",
+      };
+    }
+
+    if (result.ok) {
+      setSendState({ status: "sent", messageId: result.messageId });
+      playSuccess();
+      demoSuccess(
+        t("comm.sentTitle"),
+        t("comm.sentDesc", { name: selected.fromName }),
+      );
+    } else {
+      setSendState({ status: "failed", error: result.error ?? "Send failed." });
+    }
   }
 
   return (
@@ -74,7 +166,7 @@ export function CommunicationHub({ emails }: { emails: CustomerEmail[] }) {
               <li key={e.id}>
                 <button
                   type="button"
-                  onClick={() => setSelectedId(e.id)}
+                  onClick={() => selectEmail(e.id)}
                   aria-current={active}
                   className={cn(
                     "w-full text-left px-4 py-3 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand",
@@ -148,19 +240,58 @@ export function CommunicationHub({ emails }: { emails: CustomerEmail[] }) {
                 <p className="mt-2 text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">
                   {selected.aiDraft}
                 </p>
+                {/* ── Send outcome feedback ── */}
+                {sendState.status === "sent" && (
+                  <div className="mt-3 flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                    <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300">
+                      {t("comm.sentTitle")}
+                      {sendState.messageId && (
+                        <span className="ml-1.5 font-mono opacity-60">
+                          {sendState.messageId}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                )}
+                {sendState.status === "failed" && (
+                  <div className="mt-3 flex items-start gap-2 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0 text-rose-500 mt-0.5" />
+                    <p className="text-xs text-rose-700 dark:text-rose-300">
+                      {sendState.error}
+                    </p>
+                  </div>
+                )}
+
                 <div className="mt-4 flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={handleSendReply}
-                    disabled={sending}
-                    className="inline-flex items-center gap-1.5 h-9 rounded-lg bg-brand text-white px-3.5 text-sm font-semibold hover:bg-brand-strong transition-colors shadow-[0_4px_16px_-6px_var(--brand)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-70 disabled:cursor-not-allowed"
+                    disabled={
+                      sendState.status === "approving" ||
+                      sendState.status === "sent"
+                    }
+                    className={cn(
+                      "inline-flex items-center gap-1.5 h-9 rounded-lg px-3.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed",
+                      sendState.status === "sent"
+                        ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 disabled:opacity-100"
+                        : "bg-brand text-white hover:bg-brand-strong shadow-[0_4px_16px_-6px_var(--brand)] disabled:opacity-70",
+                    )}
                   >
-                    {sending ? (
+                    {sendState.status === "approving" ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : sendState.status === "sent" ? (
+                      <CheckCircle2 className="h-3.5 w-3.5" />
                     ) : (
                       <Send className="h-3.5 w-3.5" />
                     )}
-                    {sending ? t("comm.sending") : t("comm.sendReply")}
+                    {sendState.status === "approving"
+                      ? t("comm.sending")
+                      : sendState.status === "sent"
+                        ? t("comm.sentTitle")
+                        : sendState.status === "failed"
+                          ? t("comm.retrySend")
+                          : t("comm.sendReply")}
                   </button>
                   <button
                     type="button"

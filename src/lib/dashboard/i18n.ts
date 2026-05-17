@@ -276,6 +276,11 @@ export const dictionary = {
     nl: "Antwoord verzonden",
     tr: "Yanıt gönderildi",
   },
+  "comm.retrySend": {
+    en: "Retry send",
+    nl: "Opnieuw versturen",
+    tr: "Yeniden gönder",
+  },
   "comm.sentDesc": {
     en: "AI draft sent to {{name}}.",
     nl: "AI-concept verzonden naar {{name}}.",
