@@ -45,7 +45,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="relative min-h-screen text-foreground">
+    <div className="relative h-screen overflow-hidden text-foreground">
       <div aria-hidden className="dashboard-bg fixed inset-0 -z-10" />
 
       <DashboardSidebar
@@ -55,14 +55,16 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
         onToggleCollapse={toggleCollapse}
       />
 
-      {/* Content column — offset adjusts to sidebar width on lg+ */}
+      {/* Content column — offset adjusts to sidebar width on lg+.
+          Locked to the viewport height; only <main> scrolls internally so
+          the window/chrome never moves (single-screen cockpit). */}
       <div
-        className={`flex flex-col min-h-screen transition-[padding] duration-300 ${
+        className={`flex flex-col h-screen transition-[padding] duration-300 ${
           collapsed ? "lg:pl-[4.75rem]" : "lg:pl-[16.5rem]"
         }`}
       >
         <DashboardTopbar onOpenSidebar={() => setSidebarOpen(true)} />
-        <main className="flex-1 px-4 sm:px-6 lg:px-8 py-8 sm:py-10 lg:py-12">
+        <main className="flex-1 min-h-0 overflow-y-auto scroll-thin px-4 sm:px-6 lg:px-8 py-8 sm:py-10 lg:py-12">
           <motion.div
             key={pathname}
             initial={{ opacity: 0, y: 4 }}

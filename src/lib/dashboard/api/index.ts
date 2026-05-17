@@ -21,3 +21,4 @@ export * from "./team.api";
 export * from "./automation.api";
 export * from "./reports.api";
 export * from "./settings.api";
+export * from "./oceanFreight.api";

@@ -19,10 +19,7 @@ export function ChartCard({
 }: Props) {
   return (
     <section
-      className={cn(
-        "card-premium rounded-2xl h-full flex flex-col",
-        className,
-      )}
+      className={cn("card-premium rounded-2xl h-full flex flex-col", className)}
     >
       <header className="flex items-start justify-between gap-3 px-6 pt-6 pb-4">
         <div className="min-w-0">

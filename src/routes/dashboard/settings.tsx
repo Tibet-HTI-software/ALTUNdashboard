@@ -1,424 +1,287 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
-  Building2,
-  Bell,
-  Shield,
-  Sliders,
-  Plug,
-  Save,
+  AlarmClock,
+  Database,
+  Minus,
   Moon,
+  Plus,
+  Save,
+  Sun,
+  Plug,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
-import { DashboardPageHeader } from "@/components/dashboard/DashboardPageHeader";
-import { Switch } from "@/components/ui/switch";
-import { updateDashboardSettings } from "@/lib/dashboard/api";
-import { demoSuccess, demoError } from "@/lib/dashboard/demo";
 import { useTheme } from "@/lib/dashboard/theme";
 import { LANGUAGES, useLanguage } from "@/lib/dashboard/language";
+import { useDemurrageThresholds } from "@/lib/dashboard/demurrage";
+import { useT } from "@/lib/dashboard/i18n";
+import { demoSuccess } from "@/lib/dashboard/demo";
 
 export const Route = createFileRoute("/dashboard/settings")({
   head: () => ({ meta: [{ title: "Settings — Altun Logistics Operations" }] }),
   component: SettingsPage,
 });
 
-function SettingsCard({
-  title,
-  icon: Icon,
-  className,
-  children,
-}: {
-  title: string;
-  icon: typeof Building2;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className={`card-premium rounded-2xl p-5 ${className ?? ""}`}>
-      <header className="flex items-center gap-2.5 mb-4">
-        <div className="h-9 w-9 rounded-md bg-brand-soft text-brand flex items-center justify-center">
-          <Icon className="h-4 w-4" />
-        </div>
-        <h2 className="font-display font-bold text-navy-deep text-base">
-          {title}
-        </h2>
-      </header>
-      <div className="space-y-3">{children}</div>
-    </section>
-  );
-}
-
-function Field({
-  id,
-  label,
-  defaultValue,
-  hint,
-}: {
-  id: string;
-  label: string;
-  defaultValue: string;
-  hint?: string;
-}) {
-  return (
-    <label htmlFor={id} className="block">
-      <span className="text-xs font-semibold text-navy-deep">{label}</span>
-      <input
-        id={id}
-        type="text"
-        defaultValue={defaultValue}
-        className="mt-1 w-full h-9 rounded-md border border-border bg-card px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand transition-colors"
-      />
-      {hint && (
-        <span className="mt-1 block text-[0.7rem] text-muted-foreground">
-          {hint}
-        </span>
-      )}
-    </label>
-  );
-}
-
-function ToggleRow({
-  id,
-  label,
-  description,
-  defaultOn,
-}: {
-  id: string;
-  label: string;
-  description: string;
-  defaultOn?: boolean;
-}) {
-  return (
-    <div className="flex items-start justify-between gap-3">
-      <label htmlFor={id} className="min-w-0 cursor-pointer">
-        <div className="text-sm font-semibold text-navy-deep">{label}</div>
-        <div className="text-xs text-muted-foreground">{description}</div>
-      </label>
-      <Switch id={id} defaultChecked={defaultOn} className="mt-1" />
-    </div>
-  );
-}
-
-/** Controlled toggle row — used by Dark Mode where state lives outside the form. */
-function ControlledToggleRow({
-  id,
-  label,
-  description,
-  checked,
-  onChange,
-}: {
-  id: string;
-  label: string;
-  description: string;
-  checked: boolean;
-  onChange: (next: boolean) => void;
-}) {
-  return (
-    <div className="flex items-start justify-between gap-3">
-      <label htmlFor={id} className="min-w-0 cursor-pointer">
-        <div className="text-sm font-semibold text-navy-deep">{label}</div>
-        <div className="text-xs text-muted-foreground">{description}</div>
-      </label>
-      <Switch
-        id={id}
-        checked={checked}
-        onCheckedChange={onChange}
-        className="mt-1"
-      />
-    </div>
-  );
-}
-
 function SettingsPage() {
-  const [saving, setSaving] = useState(false);
-  const { theme, setTheme } = useTheme();
+  const t = useT();
+  const { theme, toggle } = useTheme();
   const { language, setLanguage } = useLanguage();
-
-  /**
-   * Calls the mock settings API so the save path is wired up the same way a
-   * real backend save would be. Form is currently uncontrolled — when a real
-   * backend lands, lift inputs into state and pass the diff into
-   * updateDashboardSettings().
-   */
-  async function handleSave() {
-    setSaving(true);
-    try {
-      await updateDashboardSettings({});
-      demoSuccess(
-        "Settings saved",
-        "Persisted in mock store — resets on reload.",
-      );
-    } catch (err) {
-      demoError(
-        "Could not save settings",
-        err instanceof Error ? err.message : "Failed to save settings.",
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
+  const { thresholds, setThresholds } = useDemurrageThresholds();
 
   return (
     <DashboardLayout>
-      <DashboardPageHeader
-        title="Settings"
-        description="Internal preferences for the dashboard, notifications, and integrations."
-        crumbs={[
-          { label: "Dashboard", to: "/dashboard" },
-          { label: "Settings" },
-        ]}
-        actions={
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving}
-            className="inline-flex items-center gap-1.5 h-9 rounded-md bg-brand text-white px-3.5 text-sm font-medium hover:bg-brand-strong transition-colors disabled:opacity-60 disabled:pointer-events-none"
-          >
-            <Save className="h-3.5 w-3.5" />{" "}
-            {saving ? "Saving…" : "Save changes"}
-          </button>
-        }
-      />
+      <div className="mb-5">
+        <h1 className="font-display text-2xl sm:text-[1.75rem] font-bold text-foreground tracking-tight">
+          {t("page.settings.title")}
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {t("page.settings.sub")}
+        </p>
+      </div>
 
-      {/*
-        12-col grid lets the 5 cards fit symmetrically:
-        Row 1 (≥lg): Company Profile (6) · Notifications (6)
-        Row 2 (≥lg): Roles (4) · Dashboard Prefs (4) · Integrations (4)
-        Single col below lg.
-      */}
-      <div className="grid gap-5 lg:grid-cols-12">
-        {/* Appearance pinned to top — first thing users see in Settings. */}
-        <SettingsCard title="Appearance" icon={Moon} className="lg:col-span-12">
-          <ControlledToggleRow
-            id="pref-dark-mode"
-            label="Dark Mode"
-            description="Use a darker interface for low-light environments."
-            checked={theme === "dark"}
-            onChange={(next) => setTheme(next ? "dark" : "light")}
-          />
+      <div className="max-h-[calc(100vh-15rem)] overflow-y-auto scroll-thin pr-1 space-y-4">
+        {/* Demurrage risk alerts */}
+        <SettingsCard
+          icon={AlarmClock}
+          title={t("settings.demurrage")}
+          description="When a container's remaining free time drops below these limits, the Demurrage Risk Board escalates its colour."
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Stepper
+              label={t("settings.critical")}
+              tone="rose"
+              value={thresholds.criticalH}
+              suffix="h"
+              onChange={(criticalH) =>
+                setThresholds({ ...thresholds, criticalH })
+              }
+            />
+            <Stepper
+              label={t("settings.warning")}
+              tone="amber"
+              value={thresholds.warningH}
+              suffix="h"
+              onChange={(warningH) =>
+                setThresholds({ ...thresholds, warningH })
+              }
+            />
+          </div>
+          <p className="mt-3 text-xs text-muted-foreground">
+            Containers under{" "}
+            <span className="font-semibold text-rose-600 dark:text-rose-400">
+              {thresholds.criticalH}h
+            </span>{" "}
+            show red, under{" "}
+            <span className="font-semibold text-amber-600 dark:text-amber-400">
+              {thresholds.warningH}h
+            </span>{" "}
+            show amber. Changes apply live.
+          </p>
+        </SettingsCard>
 
-          {/*
-            Language preference — UI-only. Persisted via useLanguage()
-            (localStorage). Real translations are deferred to the end of
-            the project alongside the public-website i18n pass.
-          */}
-          <div className="pt-3 border-t border-border">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0">
-                <div className="text-sm font-semibold text-navy-deep">
-                  Language
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Language preference is saved. Full interface translations will
-                  be applied in a later release.
-                </div>
-              </div>
-              <div
-                role="radiogroup"
-                aria-label="Language preference"
-                className="inline-flex rounded-md border border-input bg-secondary/30 p-0.5 shrink-0"
-              >
-                {LANGUAGES.map((opt) => {
-                  const active = language === opt.value;
-                  return (
-                    <label
-                      key={opt.value}
-                      aria-checked={active}
-                      className={`relative cursor-pointer select-none px-3 h-8 inline-flex items-center justify-center rounded-[0.3rem] text-xs font-semibold transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand has-[:focus-visible]:ring-offset-1 has-[:focus-visible]:ring-offset-card ${
-                        active
-                          ? "bg-brand text-white shadow-[var(--shadow-card)]"
-                          : "text-muted-foreground hover:text-navy-deep"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="pref-language"
-                        value={opt.value}
-                        checked={active}
-                        onChange={() => setLanguage(opt.value)}
-                        className="sr-only"
-                      />
-                      {opt.label}
-                    </label>
-                  );
-                })}
-              </div>
+        {/* Appearance */}
+        <SettingsCard
+          icon={theme === "dark" ? Moon : Sun}
+          title="Appearance"
+          description="Theme and interface language. Synced with the sidebar."
+        >
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <button
+              type="button"
+              onClick={toggle}
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-foreground/[0.03] px-3.5 h-10 text-sm font-medium text-foreground hover:border-brand/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            >
+              {theme === "dark" ? (
+                <Moon className="h-4 w-4 text-brand" />
+              ) : (
+                <Sun className="h-4 w-4 text-brand" />
+              )}
+              {theme === "dark" ? t("pref.darkMode") : t("pref.lightMode")}
+            </button>
+
+            <div
+              role="group"
+              aria-label={t("pref.language")}
+              className="flex gap-1 rounded-lg bg-foreground/[0.04] p-1"
+            >
+              {LANGUAGES.map((l) => (
+                <button
+                  key={l.value}
+                  type="button"
+                  onClick={() => setLanguage(l.value)}
+                  aria-pressed={l.value === language}
+                  className={cn(
+                    "h-8 min-w-[3rem] rounded-md px-2 text-xs font-bold uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand",
+                    l.value === language
+                      ? "bg-brand text-white"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {l.value}
+                </button>
+              ))}
             </div>
           </div>
         </SettingsCard>
 
+        {/* Backend connection */}
         <SettingsCard
-          title="Company Profile"
-          icon={Building2}
-          className="lg:col-span-6"
+          icon={Database}
+          title={t("settings.connection")}
+          description="Connect a Supabase project to swap mock data for live data. The dashboard works fully on mock data until then."
         >
-          <Field
-            id="set-company"
-            label="Company name"
-            defaultValue="Altun Logistics NV"
-          />
-          <Field
-            id="set-address"
-            label="Address"
-            defaultValue="Paul Smekensplein 4 bus 301, 2000 Antwerpen, Belgium"
-          />
-          <Field
-            id="set-contact"
-            label="Operations contact"
-            defaultValue="info@altunlogistics.be"
-          />
-          <Field
-            id="set-vat"
-            label="VAT / Reg. number"
-            defaultValue=""
-            hint="Add when client confirms registration data."
-          />
-        </SettingsCard>
-
-        <SettingsCard
-          title="Operational Notifications"
-          icon={Bell}
-          className="lg:col-span-6"
-        >
-          <ToggleRow
-            id="notif-digest"
-            label="Daily ops digest"
-            description="Morning summary at 08:00 CET — delayed shipments, urgent customs, capacity."
-            defaultOn
-          />
-          <ToggleRow
-            id="notif-customs-sla"
-            label="Customs SLA alerts"
-            description="Notify file owner when a customs stage slips past its SLA window."
-            defaultOn
-          />
-          <ToggleRow
-            id="notif-eta-shift"
-            label="Shipment ETA shift"
-            description="Alert when carrier ETA moves by more than 24 hours."
-            defaultOn
-          />
-          <ToggleRow
-            id="notif-quotes"
-            label="New quote requests"
-            description="Push to Sales channel as soon as a request lands."
-            defaultOn
-          />
-          <ToggleRow
-            id="notif-quote-approved"
-            label="Quote approval notifications"
-            description="Notify Freight Forwarding when a customer approves a quote."
-            defaultOn
-          />
-          <ToggleRow
-            id="notif-warehouse"
-            label="Warehouse capacity warnings"
-            description="Alert Operations when any zone exceeds 90% occupancy."
-          />
-        </SettingsCard>
-
-        <SettingsCard
-          title="Roles & Permissions"
-          icon={Shield}
-          className="lg:col-span-4"
-        >
-          <p className="text-xs text-muted-foreground">
-            Role-based access placeholders. Wire to real auth before granting
-            non-admin access.
+          <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 h-7 text-[0.7rem] font-semibold text-amber-700 dark:text-amber-300">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+            Not connected — running on mock data
+          </div>
+          <div className="space-y-3">
+            <CredField
+              label="Supabase project URL"
+              placeholder="https://your-project.supabase.co"
+            />
+            <CredField
+              label="Anon / publishable key"
+              placeholder="paste the publishable anon key"
+              mono
+            />
+          </div>
+          <p className="mt-2.5 text-[0.7rem] text-muted-foreground">
+            Never paste the service-role key here — only the publishable anon
+            key belongs on the client.
           </p>
-          <ul className="text-sm space-y-2">
-            {[
-              { role: "Admin", scope: "Full access" },
-              { role: "Operations", scope: "Shipments + warehouse" },
-              { role: "Customs", scope: "Customs + documents" },
-              { role: "Sales", scope: "Quotes + customers" },
-            ].map((r) => (
-              <li
-                key={r.role}
-                className="flex items-center justify-between rounded-md border border-border px-3 py-2"
-              >
-                <span className="font-semibold text-navy-deep">{r.role}</span>
-                <span className="text-xs text-muted-foreground">{r.scope}</span>
-              </li>
-            ))}
-          </ul>
+          <button
+            type="button"
+            onClick={() =>
+              demoSuccess(
+                "Prototype",
+                "Backend connection is a placeholder in this preview.",
+              )
+            }
+            className="mt-3 inline-flex items-center gap-1.5 h-9 rounded-lg border border-border bg-foreground/[0.03] px-3.5 text-sm font-medium text-foreground hover:border-brand/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+          >
+            <Plug className="h-3.5 w-3.5" /> Test connection
+          </button>
         </SettingsCard>
 
-        <SettingsCard
-          title="Document Workflow"
-          icon={Sliders}
-          className="lg:col-span-4"
-        >
-          <ToggleRow
-            id="pref-doc-required"
-            label="Block submission on missing docs"
-            description="Prevent customs file submission until all required documents are attached."
-            defaultOn
-          />
-          <ToggleRow
-            id="pref-doc-autocheck"
-            label="Auto document completeness check"
-            description="Run automation check whenever a document is uploaded."
-            defaultOn
-          />
-          <ToggleRow
-            id="pref-cross"
-            label="Show cross-trade lane"
-            description="Pin the cross-trade route card to the top of the lane list."
-            defaultOn
-          />
-          <ToggleRow
-            id="pref-hide-delivered"
-            label="Hide delivered shipments"
-            description="Filter delivered records out of the default shipments view."
-          />
-        </SettingsCard>
-
-        <SettingsCard
-          title="Integrations"
-          icon={Plug}
-          className="lg:col-span-4"
-        >
-          <ul className="text-sm space-y-2">
-            {[
-              {
-                name: "Carrier rate APIs (sea/road/rail)",
-                state: "Not connected",
-              },
-              {
-                name: "Customs filing system (PLDA / NCTS)",
-                state: "Not connected",
-              },
-              {
-                name: "Track & trace — vessel ETA feed",
-                state: "Not connected",
-              },
-              { name: "Email & calendar gateway", state: "Not connected" },
-              { name: "Accounting / invoicing", state: "Not connected" },
-            ].map((i) => (
-              <li
-                key={i.name}
-                className="flex items-center justify-between rounded-md border border-border px-3 py-2"
-              >
-                <span className="font-semibold text-navy-deep">{i.name}</span>
-                <span className="text-xs text-muted-foreground">{i.state}</span>
-              </li>
-            ))}
-          </ul>
-        </SettingsCard>
-      </div>
-
-      {/* Bottom save bar — duplicates the header action for long-scroll forms */}
-      <div className="mt-6 flex justify-end">
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={saving}
-          className="inline-flex items-center gap-1.5 h-10 rounded-md bg-brand text-white px-5 text-sm font-medium hover:bg-brand-strong transition-colors disabled:opacity-60 disabled:pointer-events-none"
-        >
-          <Save className="h-4 w-4" /> {saving ? "Saving…" : "Save changes"}
-        </button>
+        <div className="flex justify-end pb-2">
+          <button
+            type="button"
+            onClick={() =>
+              demoSuccess("Settings saved", "Your preferences are stored.")
+            }
+            className="inline-flex items-center gap-1.5 h-10 rounded-xl bg-brand text-white px-4 text-sm font-semibold hover:bg-brand-strong transition-colors shadow-[0_6px_18px_-8px_var(--brand)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
+            <Save className="h-4 w-4" /> {t("settings.save")}
+          </button>
+        </div>
       </div>
     </DashboardLayout>
+  );
+}
+
+function SettingsCard({
+  icon: Icon,
+  title,
+  description,
+  children,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="card-premium rounded-2xl p-5">
+      <header className="flex items-start gap-3">
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand/12 border border-brand/20 shrink-0">
+          <Icon className="h-4 w-4 text-brand" />
+        </span>
+        <div>
+          <h2 className="font-display font-semibold text-foreground text-base tracking-tight">
+            {title}
+          </h2>
+          <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
+            {description}
+          </p>
+        </div>
+      </header>
+      <div className="mt-4">{children}</div>
+    </section>
+  );
+}
+
+function Stepper({
+  label,
+  value,
+  suffix,
+  tone,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  suffix: string;
+  tone: "rose" | "amber";
+  onChange: (v: number) => void;
+}) {
+  const dot = tone === "rose" ? "bg-rose-500" : "bg-amber-500";
+  return (
+    <div className="rounded-xl border border-border bg-foreground/[0.03] p-3.5">
+      <p className="flex items-center gap-2 text-[0.7rem] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+        <span className={cn("h-2 w-2 rounded-full", dot)} aria-hidden />
+        {label}
+      </p>
+      <div className="mt-2 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => onChange(value - 6)}
+          aria-label={`Decrease ${label}`}
+          className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-foreground hover:border-brand/40 hover:text-brand transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+        >
+          <Minus className="h-3.5 w-3.5" />
+        </button>
+        <span className="font-display text-2xl font-bold text-foreground tabular-nums min-w-[3.5rem] text-center">
+          {value}
+          <span className="text-sm text-muted-foreground">{suffix}</span>
+        </span>
+        <button
+          type="button"
+          onClick={() => onChange(value + 6)}
+          aria-label={`Increase ${label}`}
+          className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-foreground hover:border-brand/40 hover:text-brand transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function CredField({
+  label,
+  placeholder,
+  mono,
+}: {
+  label: string;
+  placeholder: string;
+  mono?: boolean;
+}) {
+  const [value, setValue] = useState("");
+  return (
+    <label className="block">
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder={placeholder}
+        autoComplete="off"
+        spellCheck={false}
+        className={cn(
+          "mt-1 w-full h-10 rounded-lg border border-border bg-foreground/[0.03] px-3 text-sm text-foreground placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/45 focus-visible:border-brand/40 transition-colors",
+          mono && "font-mono text-xs",
+        )}
+      />
+    </label>
   );
 }

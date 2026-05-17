@@ -7,13 +7,18 @@ import {
   Ship,
   Users,
   FileText,
+  Container,
   Plus,
   Activity,
 } from "lucide-react";
 import { shipments } from "@/data/dashboard/shipments";
 import { customers } from "@/data/dashboard/customers";
 import { quotes } from "@/data/dashboard/quotes";
+import { buildOceanShipments } from "@/data/dashboard/oceanFreight";
 import { demoAction } from "@/lib/dashboard/demo";
+import { useT } from "@/lib/dashboard/i18n";
+import { useGlobalSearch } from "@/lib/dashboard/search";
+import { RoleSwitcher } from "./RoleSwitcher";
 
 interface Props {
   onOpenSidebar: () => void;
@@ -25,7 +30,7 @@ interface SearchHit {
   sub: string;
   to: string;
   params?: Record<string, string>;
-  kind: "Shipment" | "Customer" | "Quote";
+  kind: "Container" | "Shipment" | "Customer" | "Quote";
 }
 
 /**
@@ -37,9 +42,13 @@ interface SearchHit {
  * customers, and quotes — replace with a real search service later.
  */
 export function DashboardTopbar({ onOpenSidebar }: Props) {
-  const [query, setQuery] = useState("");
+  const { query, setQuery } = useGlobalSearch();
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const t = useT();
+
+  // Ocean Freight shipments — searchable by container, B/L and vessel.
+  const oceanShipments = useMemo(() => buildOceanShipments(), []);
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -53,6 +62,24 @@ export function DashboardTopbar({ onOpenSidebar }: Props) {
     const q = query.trim().toLowerCase();
     if (!q) return [];
     const out: SearchHit[] = [];
+    for (const o of oceanShipments) {
+      if (
+        o.containerNumber.toLowerCase().includes(q) ||
+        o.blNumber.toLowerCase().includes(q) ||
+        o.vessel.toLowerCase().includes(q) ||
+        o.trader.toLowerCase().includes(q) ||
+        o.id.toLowerCase().includes(q)
+      ) {
+        out.push({
+          id: o.id,
+          label: o.containerNumber,
+          sub: `${o.trader} · ${o.pol} → ${o.pod} · ${o.vessel}`,
+          to: "/dashboard/shipments",
+          kind: "Container",
+        });
+      }
+      if (out.length >= 6) break;
+    }
     for (const s of shipments) {
       if (
         s.id.toLowerCase().includes(q) ||
@@ -104,9 +131,10 @@ export function DashboardTopbar({ onOpenSidebar }: Props) {
       if (out.length >= 20) break;
     }
     return out.slice(0, 8);
-  }, [query]);
+  }, [query, oceanShipments]);
 
   const kindIcon = {
+    Container,
     Shipment: Ship,
     Customer: Users,
     Quote: FileText,
@@ -130,7 +158,7 @@ export function DashboardTopbar({ onOpenSidebar }: Props) {
             <span className="relative h-1.5 w-1.5">
               <span className="status-pulse absolute inset-0 rounded-full bg-emerald-500" />
             </span>
-            Systems live
+            {t("top.systemsLive")}
           </span>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-foreground/[0.03] px-3 h-7 text-[0.7rem] font-medium text-muted-foreground">
             <Activity className="h-3 w-3 text-brand" />
@@ -154,8 +182,8 @@ export function DashboardTopbar({ onOpenSidebar }: Props) {
                 setOpen(true);
               }}
               onFocus={() => setOpen(true)}
-              placeholder="Search shipments, customers, quotes…"
-              title="Demo search — filters mock shipments, customers, and quotes."
+              placeholder={t("top.search")}
+              title="Demo search — container number, B/L, vessel, trader."
               autoComplete="off"
               className="w-full h-9 pl-9 pr-14 rounded-lg border border-border bg-foreground/[0.03] text-sm text-foreground placeholder:text-muted-foreground/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/45 focus-visible:border-brand/40 transition-colors"
             />
@@ -236,22 +264,12 @@ export function DashboardTopbar({ onOpenSidebar }: Props) {
             onClick={() => demoAction("this would open the new shipment form.")}
             className="hidden sm:inline-flex items-center gap-1.5 h-9 rounded-lg bg-brand text-white px-3.5 text-sm font-semibold hover:bg-brand-strong transition-colors shadow-[0_4px_16px_-6px_var(--brand)]"
           >
-            <Plus className="h-4 w-4" /> New shipment
+            <Plus className="h-4 w-4" /> {t("top.newShipment")}
           </button>
 
-          {/* Profile chip */}
-          <div className="hidden sm:flex items-center gap-2.5 pl-2.5 ml-0.5 border-l border-border">
-            <div className="leading-tight text-right">
-              <div className="text-[0.8125rem] font-semibold text-foreground">
-                Huseyin Altun
-              </div>
-              <div className="text-[0.62rem] uppercase tracking-widest text-muted-foreground">
-                CEO
-              </div>
-            </div>
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-brand to-brand-strong text-white flex items-center justify-center font-display font-semibold text-[0.72rem] shadow-[0_4px_14px_-4px_var(--brand)]">
-              HA
-            </div>
+          {/* Role-preview switcher (doubles as the profile chip) */}
+          <div className="pl-1.5 ml-0.5 border-l border-border">
+            <RoleSwitcher />
           </div>
         </div>
       </div>

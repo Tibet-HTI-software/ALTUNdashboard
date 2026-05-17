@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { dashboardNav } from "@/lib/dashboard/nav";
 import { useTheme } from "@/lib/dashboard/theme";
 import { LANGUAGES, useLanguage } from "@/lib/dashboard/language";
+import { useT } from "@/lib/dashboard/i18n";
 
 interface Props {
   open: boolean;
@@ -35,6 +36,7 @@ export function DashboardSidebar({
 }: Props) {
   const { theme, toggle } = useTheme();
   const { language, setLanguage } = useLanguage();
+  const t = useT();
 
   return (
     <>
@@ -122,7 +124,7 @@ export function DashboardSidebar({
         <nav className="flex-1 overflow-y-auto px-3 py-5" aria-label="Sections">
           {!collapsed && (
             <p className="px-3 mb-2.5 text-[0.6rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground/70">
-              Workspace
+              {t("nav.workspace")}
             </p>
           )}
           <ul className="space-y-1">
@@ -134,7 +136,7 @@ export function DashboardSidebar({
                     to={item.to}
                     onClick={onClose}
                     activeOptions={{ exact: item.exact }}
-                    title={collapsed ? item.label : undefined}
+                    title={collapsed ? t(item.labelKey) : undefined}
                     className={cn(
                       "group relative flex items-center rounded-lg text-[0.85rem] font-medium",
                       "text-muted-foreground hover:text-foreground transition-colors",
@@ -156,7 +158,7 @@ export function DashboardSidebar({
                     />
                     <Icon className="h-[1.05rem] w-[1.05rem] shrink-0 text-muted-foreground/70 group-hover:text-foreground transition-colors" />
                     <span className={cn(collapsed && "lg:hidden")}>
-                      {item.label}
+                      {t(item.labelKey)}
                     </span>
                   </Link>
                 </li>
@@ -170,13 +172,13 @@ export function DashboardSidebar({
           <div className="mt-6">
             {!collapsed && (
               <p className="px-3 mb-2.5 text-[0.6rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground/70">
-                Quick Access
+                {t("nav.quickAccess")}
               </p>
             )}
             <Link
               to="/dashboard/automation"
               onClick={onClose}
-              title={collapsed ? "Automation Center" : undefined}
+              title={collapsed ? t("nav.automation") : undefined}
               className={cn(
                 "group relative flex items-center rounded-xl font-semibold text-white",
                 "bg-gradient-to-br from-brand to-brand-strong",
@@ -198,9 +200,9 @@ export function DashboardSidebar({
                   collapsed && "lg:hidden",
                 )}
               >
-                <span className="text-[0.85rem]">Automation Center</span>
+                <span className="text-[0.85rem]">{t("nav.automation")}</span>
                 <span className="text-[0.65rem] font-medium text-white/70">
-                  Quick actions for everyone
+                  {t("nav.automationSub")}
                 </span>
               </span>
             </Link>
@@ -211,7 +213,7 @@ export function DashboardSidebar({
         <div className="px-3 pt-3 pb-1 border-t border-border shrink-0">
           {!collapsed && (
             <p className="px-3 mb-2 text-[0.6rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground/70">
-              Preferences
+              {t("pref.preferences")}
             </p>
           )}
 
@@ -235,7 +237,7 @@ export function DashboardSidebar({
                 <Sun className="h-[1.05rem] w-[1.05rem] text-brand" />
               )}
               <span className={cn(collapsed && "lg:hidden")}>
-                {theme === "dark" ? "Dark mode" : "Light mode"}
+                {theme === "dark" ? t("pref.darkMode") : t("pref.lightMode")}
               </span>
             </span>
             <span
@@ -267,7 +269,9 @@ export function DashboardSidebar({
           >
             <span className="flex items-center gap-3 text-[0.85rem] font-medium text-muted-foreground">
               <Globe className="h-[1.05rem] w-[1.05rem] text-brand" />
-              <span className={cn(collapsed && "lg:hidden")}>Language</span>
+              <span className={cn(collapsed && "lg:hidden")}>
+                {t("pref.language")}
+              </span>
             </span>
             <div
               role="group"
@@ -306,7 +310,7 @@ export function DashboardSidebar({
           <Link
             to="/dashboard/settings"
             onClick={onClose}
-            title={collapsed ? "Settings" : undefined}
+            title={collapsed ? t("pref.settings") : undefined}
             className={cn(
               "group flex items-center rounded-lg text-[0.85rem] font-medium text-muted-foreground hover:text-foreground hover:bg-foreground/[0.04] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand",
               collapsed
@@ -314,12 +318,13 @@ export function DashboardSidebar({
                 : "gap-3 px-3 py-2.5",
             )}
             activeProps={{
-              className:
-                "!text-foreground !bg-brand/[0.1] [&>svg]:!text-brand",
+              className: "!text-foreground !bg-brand/[0.1] [&>svg]:!text-brand",
             }}
           >
             <Settings className="h-[1.05rem] w-[1.05rem] shrink-0 text-muted-foreground/70 group-hover:text-foreground transition-colors" />
-            <span className={cn(collapsed && "lg:hidden")}>Settings</span>
+            <span className={cn(collapsed && "lg:hidden")}>
+              {t("pref.settings")}
+            </span>
           </Link>
         </div>
       </aside>

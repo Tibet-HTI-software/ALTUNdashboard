@@ -1,277 +1,388 @@
-import { useMemo, useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { Plus, Ship, Truck, Train, ArrowRight } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import { ArrowUpDown, Container as ContainerIcon, Search } from "lucide-react";
+import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
-import { DashboardPageHeader } from "@/components/dashboard/DashboardPageHeader";
-import { DataTable, type Column } from "@/components/dashboard/DataTable";
-import { FilterBar, SelectFilter } from "@/components/dashboard/FilterBar";
-import {
-  StatusBadge,
-  priorityTone,
-  shipmentStatusTone,
-} from "@/components/dashboard/StatusBadge";
-import { demoAction } from "@/lib/dashboard/demo";
-import { getShipments, useAsyncData } from "@/lib/dashboard/api";
 import { LoadingState, ErrorState } from "@/components/dashboard/AsyncStates";
-import type {
-  Priority,
-  Shipment,
-  ShipmentStatus,
-  TransportMode,
-} from "@/lib/dashboard/types";
-import { formatDateShort } from "@/lib/dashboard/format";
+import {
+  getOceanShipments,
+  getFreeTimeStatus,
+  useAsyncData,
+  type OceanShipment,
+  type ShipmentPhase,
+} from "@/lib/dashboard/api";
+import { useGlobalSearch } from "@/lib/dashboard/search";
+import { useDemurrageThresholds } from "@/lib/dashboard/demurrage";
+import { useRole } from "@/lib/dashboard/role";
+import { useT } from "@/lib/dashboard/i18n";
 
 export const Route = createFileRoute("/dashboard/shipments")({
-  head: () => ({ meta: [{ title: "Shipments — Altun Logistics Operations" }] }),
+  head: () => ({
+    meta: [{ title: "Shipments — Altun Logistics Operations" }],
+  }),
   component: ShipmentsPage,
 });
 
-const STATUSES: (ShipmentStatus | "All")[] = [
-  "All",
-  "Booked",
-  "In Transit",
-  "Customs Clearance",
-  "At Warehouse",
-  "Delivered",
-  "Delayed",
-];
+const PHASE_TONE: Record<ShipmentPhase, string> = {
+  Booked: "bg-foreground/[0.06] text-muted-foreground border-border",
+  "In Transit":
+    "bg-sky-500/12 text-sky-700 dark:text-sky-300 border-sky-500/25",
+  Discharged:
+    "bg-violet-500/12 text-violet-700 dark:text-violet-300 border-violet-500/25",
+  "Customs Hold":
+    "bg-amber-500/12 text-amber-700 dark:text-amber-300 border-amber-500/25",
+  Released: "bg-brand/12 text-brand border-brand/25",
+  Delivered:
+    "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300 border-emerald-500/25",
+};
 
-const MODES: (TransportMode | "All")[] = ["All", "Sea", "Road", "Rail"];
+const RISK_CHIP: Record<string, string> = {
+  demurrage: "bg-rose-500/15 text-rose-600 dark:text-rose-300",
+  critical: "bg-rose-500/12 text-rose-600 dark:text-rose-300",
+  warning: "bg-amber-500/12 text-amber-700 dark:text-amber-300",
+  healthy: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300",
+};
 
-const PRIORITIES: (Priority | "All")[] = [
-  "All",
-  "Urgent",
-  "High",
-  "Normal",
-  "Low",
-];
-
-const ETA_SORTS = ["Earliest arrival", "Latest arrival"] as const;
-
-function modeIcon(m: TransportMode) {
-  if (m === "Sea") return Ship;
-  if (m === "Rail") return Train;
-  return Truck;
-}
+type SortKey =
+  | "containerNumber"
+  | "carrier"
+  | "phase"
+  | "pod"
+  | "trader"
+  | "freeTime";
 
 function ShipmentsPage() {
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<string>("All");
-  const [mode, setMode] = useState<string>("All");
-  const [priority, setPriority] = useState<string>("All");
-  const [etaSort, setEtaSort] = useState<string>("Earliest arrival");
+  const { data, loading, error, reload } = useAsyncData(getOceanShipments, []);
+  const { query } = useGlobalSearch();
+  const { thresholds } = useDemurrageThresholds();
+  const { role } = useRole();
+  const t = useT();
 
-  const {
-    data: shipments,
-    loading,
-    error,
-    reload,
-  } = useAsyncData(getShipments, []);
+  const [carrier, setCarrier] = useState("all");
+  const [phase, setPhase] = useState("all");
+  const [pod, setPod] = useState("all");
+  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({
+    key: "freeTime",
+    dir: 1,
+  });
 
-  const rows = useMemo(() => {
-    if (!shipments) return [];
-    const q = search.trim().toLowerCase();
-    const filtered = shipments.filter((s) => {
-      if (status !== "All" && s.status !== status) return false;
-      if (mode !== "All" && s.mode !== mode) return false;
-      if (priority !== "All" && s.priority !== priority) return false;
+  // Customs Declarant lands on blocked shipments first.
+  useEffect(() => {
+    if (role === "customs") setPhase("Customs Hold");
+  }, [role]);
+
+  const rows = useMemo(() => data ?? [], [data]);
+
+  const carriers = useMemo(
+    () => [...new Set(rows.map((s) => s.carrier))].sort(),
+    [rows],
+  );
+  const pods = useMemo(
+    () => [...new Set(rows.map((s) => s.pod))].sort(),
+    [rows],
+  );
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const matches = rows.filter((s) => {
+      if (carrier !== "all" && s.carrier !== carrier) return false;
+      if (phase !== "all" && s.phase !== phase) return false;
+      if (pod !== "all" && s.pod !== pod) return false;
       if (!q) return true;
       return (
-        s.id.toLowerCase().includes(q) ||
-        s.customer.toLowerCase().includes(q) ||
-        s.origin.toLowerCase().includes(q) ||
-        s.destination.toLowerCase().includes(q)
+        s.containerNumber.toLowerCase().includes(q) ||
+        s.blNumber.toLowerCase().includes(q) ||
+        s.vessel.toLowerCase().includes(q) ||
+        s.trader.toLowerCase().includes(q) ||
+        s.pol.toLowerCase().includes(q) ||
+        s.pod.toLowerCase().includes(q) ||
+        s.id.toLowerCase().includes(q)
       );
     });
-
-    // Sort by ETA — never mutate the source array.
-    // Earliest arrival = ascending ETA, Latest arrival = descending ETA.
-    const dir = etaSort === "Latest arrival" ? -1 : 1;
-    return [...filtered].sort(
-      (a, b) => dir * (new Date(a.eta).getTime() - new Date(b.eta).getTime()),
-    );
-  }, [shipments, search, status, mode, priority, etaSort]);
-
-  const columns: Column<Shipment>[] = [
-    {
-      key: "id",
-      header: "Shipment",
-      cell: (s) => (
-        <div className="min-w-0">
-          <Link
-            to="/dashboard/shipments/$id"
-            params={{ id: s.id }}
-            className="font-mono text-xs font-semibold text-brand hover:underline underline-offset-4"
-          >
-            {s.id}
-          </Link>
-          <div className="text-xs text-muted-foreground mt-0.5">
-            {s.container}
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: "customer",
-      header: "Customer",
-      className: "max-w-[10rem] sm:max-w-[14rem] md:max-w-none",
-      cell: (s) => (
-        <span className="font-medium block truncate" title={s.customer}>
-          {s.customer}
-        </span>
-      ),
-    },
-    {
-      key: "route",
-      header: "Route",
-      hideOn: "md",
-      cell: (s) => (
-        <span className="text-sm text-muted-foreground">
-          {s.origin} → {s.destination}
-        </span>
-      ),
-    },
-    {
-      key: "mode",
-      header: "Mode",
-      hideOn: "sm",
-      cell: (s) => {
-        const Icon = modeIcon(s.mode);
+    const sorted = [...matches].sort((a, b) => {
+      if (sort.key === "freeTime") {
         return (
-          <span className="inline-flex items-center gap-1.5 text-sm">
-            <Icon className="h-3.5 w-3.5 text-brand" />
-            {s.mode}
-          </span>
+          (getFreeTimeStatus(a, thresholds).hoursLeft -
+            getFreeTimeStatus(b, thresholds).hoursLeft) *
+          sort.dir
         );
-      },
-    },
-    {
-      key: "status",
-      header: "Status",
-      cell: (s) => (
-        <StatusBadge tone={shipmentStatusTone(s.status)}>
-          {s.status}
-        </StatusBadge>
-      ),
-    },
-    {
-      key: "priority",
-      header: "Priority",
-      hideOn: "lg",
-      cell: (s) => (
-        <StatusBadge tone={priorityTone(s.priority)} dot>
-          {s.priority}
-        </StatusBadge>
-      ),
-    },
-    {
-      key: "etd",
-      header: "ETD",
-      hideOn: "lg",
-      cell: (s) => (
-        <span className="tabular-nums text-xs">{formatDateShort(s.etd)}</span>
-      ),
-    },
-    {
-      key: "eta",
-      header: "ETA",
-      cell: (s) => (
-        <span className="tabular-nums text-xs">{formatDateShort(s.eta)}</span>
-      ),
-    },
-    {
-      key: "assigned",
-      header: "Assigned",
-      hideOn: "lg",
-      cell: (s) => (
-        <span className="text-xs text-muted-foreground">{s.assignedTo}</span>
-      ),
-    },
-    {
-      key: "view",
-      header: "",
-      cell: (s) => (
-        <Link
-          to="/dashboard/shipments/$id"
-          params={{ id: s.id }}
-          className="inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline underline-offset-4"
-        >
-          View <ArrowRight className="h-3 w-3" />
-        </Link>
-      ),
-    },
-  ];
+      }
+      return String(a[sort.key]).localeCompare(String(b[sort.key])) * sort.dir;
+    });
+    return sorted;
+  }, [rows, query, carrier, phase, pod, sort, thresholds]);
+
+  function toggleSort(key: SortKey) {
+    setSort((s) =>
+      s.key === key ? { key, dir: s.dir === 1 ? -1 : 1 } : { key, dir: 1 },
+    );
+  }
+
+  const header = (
+    <div className="mb-5">
+      <h1 className="font-display text-2xl sm:text-[1.75rem] font-bold text-foreground tracking-tight">
+        {t("page.shipments.title")}
+      </h1>
+      <p className="mt-1 text-sm text-muted-foreground">
+        {t("page.shipments.sub")}
+      </p>
+    </div>
+  );
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        {header}
+        <LoadingState label="Loading ocean freight shipments…" />
+      </DashboardLayout>
+    );
+  }
+  if (error) {
+    return (
+      <DashboardLayout>
+        {header}
+        <ErrorState error={error} onRetry={reload} />
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
-      <DashboardPageHeader
-        title="Shipments"
-        description="Search, filter, and manage every shipment in motion."
-        crumbs={[
-          { label: "Dashboard", to: "/dashboard" },
-          { label: "Shipments" },
-        ]}
-        actions={
-          <button
-            type="button"
-            onClick={() => demoAction("this would open the new shipment form.")}
-            className="inline-flex items-center gap-1.5 h-9 rounded-md bg-brand text-white px-3.5 text-sm font-medium hover:bg-brand-strong transition-colors"
-          >
-            <Plus className="h-3.5 w-3.5" /> New shipment
-          </button>
-        }
-      />
+      {header}
 
-      <FilterBar
-        searchValue={search}
-        onSearchChange={setSearch}
-        searchPlaceholder="Search ID, customer, origin, destination…"
-        filters={
-          <>
-            <SelectFilter
-              label="Status"
-              value={status}
-              onChange={setStatus}
-              options={STATUSES.map((s) => ({ value: s, label: s }))}
-            />
-            <SelectFilter
-              label="Mode"
-              value={mode}
-              onChange={setMode}
-              options={MODES.map((m) => ({ value: m, label: m }))}
-            />
-            <SelectFilter
-              label="Priority"
-              value={priority}
-              onChange={setPriority}
-              options={PRIORITIES.map((p) => ({ value: p, label: p }))}
-            />
-            <SelectFilter
-              label="ETA"
-              value={etaSort}
-              onChange={setEtaSort}
-              options={ETA_SORTS.map((d) => ({ value: d, label: d }))}
-            />
-          </>
-        }
-      />
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-2.5 mb-4">
+        <FilterSelect
+          label={t("filter.carrier")}
+          value={carrier}
+          onChange={setCarrier}
+          options={carriers}
+          allLabel={t("filter.all")}
+        />
+        <FilterSelect
+          label={t("filter.status")}
+          value={phase}
+          onChange={setPhase}
+          options={[
+            "Booked",
+            "In Transit",
+            "Discharged",
+            "Customs Hold",
+            "Released",
+            "Delivered",
+          ]}
+          allLabel={t("filter.all")}
+        />
+        <FilterSelect
+          label={t("filter.port")}
+          value={pod}
+          onChange={setPod}
+          options={pods}
+          allLabel={t("filter.all")}
+        />
+        <span className="ml-auto inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+          {query.trim() && <Search className="h-3.5 w-3.5 text-brand" />}
+          <span className="font-semibold text-foreground tabular-nums">
+            {filtered.length}
+          </span>
+          {t("common.results")}
+        </span>
+      </div>
 
-      {loading && <LoadingState label="Loading shipments…" />}
-      {error && <ErrorState error={error} onRetry={reload} />}
-      {!loading && !error && shipments && (
-        <>
-          <DataTable
-            rows={rows}
-            columns={columns}
-            rowKey={(s) => s.id}
-            empty="No shipments match the current filters."
-          />
-
-          <p className="mt-3 text-xs text-muted-foreground">
-            Showing {rows.length} of {shipments.length} shipments
-          </p>
-        </>
-      )}
+      {/* Table card — internal scroll keeps the page itself static */}
+      <div className="card-premium rounded-2xl overflow-hidden">
+        <div className="max-h-[calc(100vh-19rem)] overflow-y-auto scroll-thin">
+          <table className="w-full text-sm border-collapse">
+            <thead className="sticky top-0 z-10 bg-card/95 backdrop-blur">
+              <tr className="border-b border-border">
+                <SortHead
+                  label={t("col.container")}
+                  active={sort.key === "containerNumber"}
+                  dir={sort.dir}
+                  onClick={() => toggleSort("containerNumber")}
+                />
+                <SortHead
+                  label={t("col.route")}
+                  active={sort.key === "pod"}
+                  dir={sort.dir}
+                  onClick={() => toggleSort("pod")}
+                />
+                <SortHead
+                  label={t("col.carrier")}
+                  active={sort.key === "carrier"}
+                  dir={sort.dir}
+                  onClick={() => toggleSort("carrier")}
+                />
+                <th className="px-3 py-2.5 text-left text-[0.62rem] font-semibold uppercase tracking-wider text-muted-foreground">
+                  {t("col.vessel")}
+                </th>
+                <SortHead
+                  label={t("col.trader")}
+                  active={sort.key === "trader"}
+                  dir={sort.dir}
+                  onClick={() => toggleSort("trader")}
+                />
+                <SortHead
+                  label={t("col.status")}
+                  active={sort.key === "phase"}
+                  dir={sort.dir}
+                  onClick={() => toggleSort("phase")}
+                />
+                <SortHead
+                  label={t("col.freeTime")}
+                  active={sort.key === "freeTime"}
+                  dir={sort.dir}
+                  onClick={() => toggleSort("freeTime")}
+                  alignRight
+                />
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((s, i) => (
+                <Row key={s.id} s={s} index={i} thresholds={thresholds} />
+              ))}
+            </tbody>
+          </table>
+          {filtered.length === 0 && (
+            <p className="px-4 py-10 text-center text-sm text-muted-foreground">
+              {t("common.noMatches")}
+            </p>
+          )}
+        </div>
+      </div>
     </DashboardLayout>
+  );
+}
+
+function Row({
+  s,
+  index,
+  thresholds,
+}: {
+  s: OceanShipment;
+  index: number;
+  thresholds: { criticalH: number; warningH: number };
+}) {
+  const ft = getFreeTimeStatus(s, thresholds);
+  return (
+    <motion.tr
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.2, delay: Math.min(index * 0.015, 0.3) }}
+      className="border-b border-border/70 last:border-0 hover:bg-foreground/[0.03] transition-colors"
+    >
+      <td className="px-3 py-2.5">
+        <div className="flex items-center gap-2">
+          <ContainerIcon className="h-3.5 w-3.5 text-brand shrink-0" />
+          <span className="font-mono text-xs font-semibold text-foreground">
+            {s.containerNumber}
+          </span>
+        </div>
+        <span className="text-[0.65rem] text-muted-foreground">
+          {s.containerType} · {s.direction}
+        </span>
+      </td>
+      <td className="px-3 py-2.5 text-xs text-foreground whitespace-nowrap">
+        {s.pol} → {s.pod}
+      </td>
+      <td className="px-3 py-2.5 text-xs text-foreground">{s.carrier}</td>
+      <td className="px-3 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
+        {s.vessel}
+        <span className="block text-[0.65rem]">{s.voyage}</span>
+      </td>
+      <td className="px-3 py-2.5 text-xs text-foreground max-w-[12rem] truncate">
+        {s.trader}
+      </td>
+      <td className="px-3 py-2.5">
+        <span
+          className={cn(
+            "inline-block rounded-full border px-2 py-0.5 text-[0.65rem] font-semibold",
+            PHASE_TONE[s.phase],
+          )}
+        >
+          {s.phase}
+        </span>
+      </td>
+      <td className="px-3 py-2.5 text-right">
+        <span
+          className={cn(
+            "inline-block rounded-md px-2 py-0.5 text-[0.65rem] font-semibold whitespace-nowrap",
+            RISK_CHIP[ft.risk],
+          )}
+        >
+          {ft.label}
+        </span>
+      </td>
+    </motion.tr>
+  );
+}
+
+function SortHead({
+  label,
+  active,
+  dir,
+  onClick,
+  alignRight,
+}: {
+  label: string;
+  active: boolean;
+  dir: 1 | -1;
+  onClick: () => void;
+  alignRight?: boolean;
+}) {
+  return (
+    <th
+      className={cn(
+        "px-3 py-2.5 text-[0.62rem] font-semibold uppercase tracking-wider",
+        alignRight ? "text-right" : "text-left",
+      )}
+    >
+      <button
+        type="button"
+        onClick={onClick}
+        className={cn(
+          "inline-flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded",
+          active ? "text-brand" : "text-muted-foreground hover:text-foreground",
+        )}
+      >
+        {label}
+        <ArrowUpDown
+          className={cn("h-3 w-3", active && dir === -1 && "rotate-180")}
+        />
+      </button>
+    </th>
+  );
+}
+
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  options,
+  allLabel,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+  allLabel: string;
+}) {
+  return (
+    <label className="inline-flex items-center gap-2 text-xs">
+      <span className="text-muted-foreground font-medium">{label}</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-9 rounded-lg border border-border bg-foreground/[0.03] px-2.5 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+      >
+        <option value="all">{allLabel}</option>
+        {options.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
