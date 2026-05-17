@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { LoadingState, ErrorState } from "@/components/dashboard/AsyncStates";
 import { DemurrageRiskBoard } from "@/components/dashboard/DemurrageRiskBoard";
-import { getOceanShipments, useAsyncData } from "@/lib/dashboard/api";
+import { useRealtimeShipments } from "@/hooks/useRealtimeShipments";
 import { useT } from "@/lib/dashboard/i18n";
 
 export const Route = createFileRoute("/dashboard/automation/delay-risk")({
@@ -15,8 +15,9 @@ export const Route = createFileRoute("/dashboard/automation/delay-risk")({
 });
 
 function DelayRiskPage() {
-  // 30 s silent background poll — keeps D&D countdowns fresh without reload.
-  const { data, loading, error, reload } = useAsyncData(getOceanShipments, [], 30_000);
+  // Supabase Realtime subscription — re-fetches on any INSERT/UPDATE/DELETE
+  // to ocean_shipments. Falls back to a one-shot fetch in mock/demo mode.
+  const { data, loading, error, reload } = useRealtimeShipments();
   const t = useT();
 
   const header = (

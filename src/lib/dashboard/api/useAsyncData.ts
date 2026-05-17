@@ -5,12 +5,12 @@ import { useEffect, useRef, useState } from "react";
  * changes and exposes `{ data, loading, error, reload }`. Cancellation is
  * handled with a flag so a stale fetch can't overwrite a newer result.
  *
- * Pass `pollInterval` (ms) to re-fetch on a timer — useful for live D&D
- * countdowns and shipment status updates. The poll fires only while the
- * hook is mounted; it pauses if the tab is hidden (via Page Visibility API).
+ * For live data subscriptions (e.g. ocean shipments, demurrage clocks) use
+ * `useRealtimeShipments` instead — it keeps data fresh via Supabase Realtime
+ * WebSocket events rather than periodic polling.
  *
  * Intentionally minimal — no caching, no retries, no SWR. Swap in
- * @tanstack/react-query (already installed) when the real backend lands.
+ * @tanstack/react-query (already installed) when a full query layer is needed.
  */
 export interface AsyncDataState<T> {
   data: T | null;
@@ -22,7 +22,6 @@ export interface AsyncDataState<T> {
 export function useAsyncData<T>(
   fetcher: () => Promise<T>,
   deps: ReadonlyArray<unknown> = [],
-  pollInterval?: number,
 ): AsyncDataState<T> {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -52,26 +51,6 @@ export function useAsyncData<T>(
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [...deps, bump]);
-
-  // Polling — silent background refreshes that skip loading state so the
-  // UI doesn't flash. Pauses when the tab is hidden.
-  useEffect(() => {
-    if (!pollInterval || pollInterval <= 0) return;
-
-    const id = setInterval(() => {
-      if (document.visibilityState === "hidden") return;
-      fetcherRef
-        .current()
-        .then((value) => setData(value))
-        .catch(() => {
-          /* silent — errors surfaced only on the initial / manual reload */
-        });
-    }, pollInterval);
-
-    return () => clearInterval(id);
-    // pollInterval is intentionally static after mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pollInterval]);
 
   return { data, loading, error, reload: () => setBump((b) => b + 1) };
 }

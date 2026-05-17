@@ -9,7 +9,7 @@ import {
   type GlobeArc,
   type GlobePoint,
 } from "@/components/dashboard/FleetGlobe";
-import { getOceanShipments, useAsyncData } from "@/lib/dashboard/api";
+import { useRealtimeShipments } from "@/hooks/useRealtimeShipments";
 import { portCoord } from "@/data/dashboard/ports";
 import { useUiSounds } from "@/hooks/useUiSounds";
 import { useT } from "@/lib/dashboard/i18n";
@@ -22,7 +22,7 @@ export const Route = createFileRoute("/dashboard/fleet-tracking")({
 });
 
 function FleetTrackingPage() {
-  const { data, loading, error, reload } = useAsyncData(getOceanShipments, []);
+  const { data, loading, error, reload } = useRealtimeShipments();
   const { playSuccess, playHover } = useUiSounds();
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const t = useT();
