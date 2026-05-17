@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   Bell,
+  ChevronDown,
+  Filter,
   Menu,
   Search,
   Ship,
@@ -10,7 +12,9 @@ import {
   Container,
   Plus,
   Activity,
+  X,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { shipments } from "@/data/dashboard/shipments";
 import { customers } from "@/data/dashboard/customers";
 import { quotes } from "@/data/dashboard/quotes";
@@ -20,6 +24,10 @@ import { useT } from "@/lib/dashboard/i18n";
 import { useGlobalSearch } from "@/lib/dashboard/search";
 import { useRealtimeConnectionStatus } from "@/hooks/useRealtimeConnectionStatus";
 import type { RealtimeConnectionStatus } from "@/hooks/useRealtimeShipments";
+import {
+  useDashboardFilters,
+  FILTER_CARRIERS,
+} from "@/lib/dashboard/DashboardFilterContext";
 import { RoleSwitcher } from "./RoleSwitcher";
 
 const OPERATIONS_COUNT = 12;
@@ -63,6 +71,118 @@ function LiveStatusPill({
       </span>
       {liveLabel}
     </span>
+  );
+}
+
+// ── Filter popover ────────────────────────────────────────────────────────────
+
+function FilterPopover() {
+  const { filters, setFilters, clearFilters, activeCount } = useDashboardFilters();
+  const [open, setOpen] = useState(false);
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (!popoverRef.current?.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div ref={popoverRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-label="Toggle shipment filters"
+        className={cn(
+          "inline-flex items-center gap-1.5 h-7 rounded-full border px-3 text-[0.7rem] font-semibold transition-colors",
+          activeCount > 0
+            ? "border-brand/40 bg-brand/10 text-brand"
+            : "border-border bg-foreground/[0.03] text-muted-foreground hover:text-foreground hover:border-brand/30",
+        )}
+      >
+        <Filter className="h-3 w-3" />
+        Filters
+        {activeCount > 0 && (
+          <span className="flex h-4 w-4 items-center justify-center rounded-full bg-brand text-[0.6rem] font-bold text-white">
+            {activeCount}
+          </span>
+        )}
+        <ChevronDown
+          className={cn(
+            "h-2.5 w-2.5 transition-transform",
+            open && "rotate-180",
+          )}
+        />
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-9 z-30 w-64 rounded-xl glass-panel border shadow-[var(--shadow-elevated)] p-3 space-y-3">
+          {/* Carrier filter */}
+          <div>
+            <p className="text-[0.6rem] uppercase tracking-widest font-semibold text-muted-foreground mb-1.5">
+              Carrier
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {FILTER_CARRIERS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() =>
+                    setFilters({ carrier: filters.carrier === c ? null : c })
+                  }
+                  className={cn(
+                    "h-6 rounded-md px-2 text-[0.68rem] font-semibold transition-colors border",
+                    filters.carrier === c
+                      ? "bg-brand text-white border-brand shadow-[0_2px_8px_-3px_var(--brand)]"
+                      : "border-border bg-foreground/[0.03] text-foreground hover:border-brand/40",
+                  )}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Customs status filter */}
+          <div>
+            <p className="text-[0.6rem] uppercase tracking-widest font-semibold text-muted-foreground mb-1.5">
+              Customs Status
+            </p>
+            <div className="flex gap-1">
+              {(["all", "hold"] as const).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setFilters({ customsStatus: s })}
+                  className={cn(
+                    "h-6 rounded-md px-2.5 text-[0.68rem] font-semibold transition-colors border",
+                    filters.customsStatus === s
+                      ? "bg-brand text-white border-brand shadow-[0_2px_8px_-3px_var(--brand)]"
+                      : "border-border bg-foreground/[0.03] text-foreground hover:border-brand/40",
+                  )}
+                >
+                  {s === "all" ? "All" : "Customs hold only"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Clear */}
+          {activeCount > 0 && (
+            <button
+              type="button"
+              onClick={() => { clearFilters(); setOpen(false); }}
+              className="inline-flex items-center gap-1 text-[0.68rem] font-semibold text-rose-500 hover:text-rose-600 transition-colors"
+            >
+              <X className="h-3 w-3" /> Clear all filters
+            </button>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -199,13 +319,14 @@ export function DashboardTopbar({ onOpenSidebar }: Props) {
           <Menu className="h-5 w-5" />
         </button>
 
-        {/* Live status pill + operations indicator */}
+        {/* Live status pill + operations indicator + global filters */}
         <div className="hidden md:flex items-center gap-2">
           <LiveStatusPill status={wsStatus} liveLabel={t("top.systemsLive")} />
           <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-foreground/[0.03] px-3 h-7 text-[0.7rem] font-medium text-muted-foreground">
             <Activity className="h-3 w-3 text-brand" />
             {t("top.operationsActive", { count: OPERATIONS_COUNT })}
           </span>
+          <FilterPopover />
         </div>
 
         {/* Search */}

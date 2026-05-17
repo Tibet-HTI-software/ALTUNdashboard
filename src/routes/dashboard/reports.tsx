@@ -1,6 +1,9 @@
+import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   Download,
+  FileSpreadsheet,
+  Loader2,
   TrendingUp,
   Stamp,
   CheckCircle2,
@@ -17,19 +20,29 @@ import {
 } from "@/components/dashboard/ChartCard";
 import {
   exportReport,
+  getAllAuditLogs,
   getReportsOverview,
   useAsyncData,
 } from "@/lib/dashboard/api";
 import { LoadingState, ErrorState } from "@/components/dashboard/AsyncStates";
 import { demoSuccess, demoError } from "@/lib/dashboard/demo";
+import {
+  generateAuditCsv,
+  computeAuditSummary,
+  downloadFile,
+} from "@/lib/dashboard/exportCsv";
 
 export const Route = createFileRoute("/dashboard/reports")({
   head: () => ({ meta: [{ title: "Reports — Altun Logistics Operations" }] }),
   component: ReportsPage,
 });
 
+const EUR = (n: number) =>
+  n.toLocaleString("en-GB", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
+
 function ReportsPage() {
   const { data, loading, error, reload } = useAsyncData(getReportsOverview, []);
+  const [auditExporting, setAuditExporting] = useState(false);
 
   async function handleExport() {
     try {
@@ -46,19 +59,57 @@ function ReportsPage() {
     }
   }
 
+  async function handleAuditExport() {
+    if (auditExporting) return;
+    setAuditExporting(true);
+    try {
+      const logs = await getAllAuditLogs(500);
+      const summary = computeAuditSummary(logs);
+      const csv = generateAuditCsv(logs);
+      const date = new Date().toISOString().slice(0, 10);
+      downloadFile(csv, `altun-audit-report-${date}.csv`, "text/csv;charset=utf-8");
+      demoSuccess(
+        "Audit report downloaded",
+        `${logs.length} actions · ${EUR(summary.totalCostAvoidedEur)} total cost avoided.`,
+      );
+    } catch (err) {
+      demoError(
+        "Export failed",
+        err instanceof Error ? err.message : "Could not fetch audit logs.",
+      );
+    } finally {
+      setAuditExporting(false);
+    }
+  }
+
   const header = (
     <DashboardPageHeader
       title="Reports"
       description="Operational analytics across shipments, routes, customs, and revenue trend."
       crumbs={[{ label: "Dashboard", to: "/dashboard" }, { label: "Reports" }]}
       actions={
-        <button
-          type="button"
-          onClick={handleExport}
-          className="inline-flex items-center gap-1.5 h-9 rounded-lg border border-border bg-foreground/[0.04] px-3.5 text-sm font-medium text-foreground hover:border-brand hover:text-brand transition-colors"
-        >
-          <Download className="h-3.5 w-3.5" /> Export report
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleAuditExport}
+            disabled={auditExporting}
+            className="inline-flex items-center gap-1.5 h-9 rounded-lg border border-brand/30 bg-brand/[0.06] px-3.5 text-sm font-medium text-brand hover:bg-brand/[0.12] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {auditExporting ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <FileSpreadsheet className="h-3.5 w-3.5" />
+            )}
+            Export Audit Report
+          </button>
+          <button
+            type="button"
+            onClick={handleExport}
+            className="inline-flex items-center gap-1.5 h-9 rounded-lg border border-border bg-foreground/[0.04] px-3.5 text-sm font-medium text-foreground hover:border-brand hover:text-brand transition-colors"
+          >
+            <Download className="h-3.5 w-3.5" /> Export report
+          </button>
+        </div>
       }
     />
   );

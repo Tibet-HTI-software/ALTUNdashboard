@@ -6,7 +6,7 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { LoadingState, ErrorState } from "@/components/dashboard/AsyncStates";
 import { DemurrageRiskBoard } from "@/components/dashboard/DemurrageRiskBoard";
 import { ShipmentDetailDrawer } from "@/components/dashboard/ShipmentDetailDrawer";
-import { useRealtimeShipments } from "@/hooks/useRealtimeShipments";
+import { useFilteredShipments } from "@/hooks/useFilteredShipments";
 import { useT } from "@/lib/dashboard/i18n";
 
 export const Route = createFileRoute("/dashboard/automation/delay-risk")({
@@ -19,7 +19,7 @@ export const Route = createFileRoute("/dashboard/automation/delay-risk")({
 function DelayRiskPage() {
   // Supabase Realtime subscription — re-fetches on any INSERT/UPDATE/DELETE
   // to ocean_shipments. Falls back to a one-shot fetch in mock/demo mode.
-  const { data, loading, error, reload } = useRealtimeShipments();
+  const { data, loading, error, reload } = useFilteredShipments();
   const t = useT();
 
   // Deep-dive drawer selection state.

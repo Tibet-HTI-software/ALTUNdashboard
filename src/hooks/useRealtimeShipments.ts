@@ -46,8 +46,69 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { getOceanShipments, type OceanShipment } from "@/lib/dashboard/api";
+import {
+  getOceanShipments,
+  getFreeTimeStatus,
+  type OceanShipment,
+} from "@/lib/dashboard/api";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { playAlertTone } from "@/hooks/useUiSounds";
+import {
+  requestNotificationPermission,
+  showBrowserNotification,
+} from "@/lib/dashboard/notifications";
+
+// ── Critical-change detection ─────────────────────────────────────────────────
+
+const CRITICAL_HOURS = 24; // trigger alert when free time drops below this
+
+/**
+ * Compare the previous and next shipment lists to detect transitions
+ * that require an immediate operator alert:
+ *  • A customs hold that was just applied (customsBlock: null → non-null)
+ *  • A D&D countdown that just crossed below 24 hours
+ *
+ * For each detected change: play the alert chime and (if permission granted)
+ * fire a browser notification.
+ */
+function detectCriticalChanges(
+  prev: OceanShipment[],
+  next: OceanShipment[],
+): void {
+  const prevMap = new Map(prev.map((s) => [s.id, s]));
+
+  for (const ship of next) {
+    const old = prevMap.get(ship.id);
+    if (!old) continue; // new booking — not a "change"
+
+    let alertTitle: string | null = null;
+    let alertBody: string | null = null;
+
+    // ── Customs hold newly applied ────────────────────────────────────────────
+    if (ship.customsBlock !== null && old.customsBlock === null) {
+      alertTitle = `🚨 Customs Hold — ${ship.containerNumber}`;
+      alertBody = ship.customsBlock;
+    }
+
+    // ── D&D just crossed below critical threshold ─────────────────────────────
+    if (!alertTitle) {
+      const oldFt = getFreeTimeStatus(old);
+      const newFt = getFreeTimeStatus(ship);
+      if (
+        newFt.hoursLeft < CRITICAL_HOURS &&
+        oldFt.hoursLeft >= CRITICAL_HOURS
+      ) {
+        alertTitle = `⏳ Demurrage Alert — ${ship.containerNumber}`;
+        alertBody = `${newFt.label} remaining · ${ship.pol} → ${ship.pod}`;
+      }
+    }
+
+    if (alertTitle && alertBody) {
+      playAlertTone();
+      showBrowserNotification(alertTitle, alertBody, ship.id);
+    }
+  }
+}
 
 // ── Connection status ─────────────────────────────────────────────────────────
 
@@ -105,6 +166,9 @@ export function useRealtimeShipments(): RealtimeShipmentsState {
 
   // Guards stale fetches from overwriting newer results after unmount / bump.
   const cancelledRef   = useRef(false);
+  // Snapshot of the last successfully loaded dataset — used to diff for
+  // critical-change detection (customs hold / D&D threshold crossings).
+  const prevDataRef    = useRef<OceanShipment[] | null>(null);
   // Tracks how many consecutive reconnect attempts have been made.
   const attemptRef     = useRef(0);
   // Holds the backoff timeout handle so it can be cancelled on unmount.
@@ -128,6 +192,7 @@ export function useRealtimeShipments(): RealtimeShipmentsState {
     getOceanShipments()
       .then((result) => {
         if (cancelledRef.current) return;
+        prevDataRef.current = result;
         setData(result);
         setLoading(false);
       })
@@ -172,7 +237,13 @@ export function useRealtimeShipments(): RealtimeShipmentsState {
           // do NOT reset loading/error state (would flash the UI).
           getOceanShipments()
             .then((result) => {
-              if (!cancelledRef.current) setData(result);
+              if (cancelledRef.current) return;
+              // Diff against previous data to detect critical transitions.
+              if (prevDataRef.current) {
+                detectCriticalChanges(prevDataRef.current, result);
+              }
+              prevDataRef.current = result;
+              setData(result);
             })
             .catch(() => {
               // Swallow silently: stale data is still better than an error flash.
@@ -186,6 +257,10 @@ export function useRealtimeShipments(): RealtimeShipmentsState {
             // Channel is live — reset backoff state.
             attemptRef.current = 0;
             setWsStatus("live");
+            // Request browser notification permission on first live connection.
+            // Some browsers require a prior user gesture; this fires the native
+            // prompt automatically (acceptable in an enterprise ops tool).
+            void requestNotificationPermission();
             break;
 
           case "CHANNEL_ERROR":

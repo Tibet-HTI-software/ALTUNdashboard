@@ -63,6 +63,37 @@ function playTone({
   osc.stop(start + duration + 0.02);
 }
 
+// ── Standalone alert tone (importable without the hook) ───────────────────────
+//
+// Used by `useRealtimeShipments` to signal critical changes (new customs hold
+// or D&D dropping below 24 h) without requiring a hook call inside a hook.
+// A separate module-level AudioContext isolates it from the shared hook ctx.
+
+let _alertCtx: AudioContext | null = null;
+
+/**
+ * Three-tone descending chime — distinct from `playSuccess` so operators can
+ * recognise a critical alert vs routine UI feedback.
+ * Fails silently if audio is blocked by the browser.
+ */
+export function playAlertTone(): void {
+  try {
+    const Ctor = resolveAudioContext();
+    if (!Ctor) return;
+    if (!_alertCtx) _alertCtx = new Ctor();
+    const ctx = _alertCtx;
+    if (ctx.state === "suspended") void ctx.resume().catch(() => {});
+    // High → mid → low: urgency signal, opposite direction to the success beep.
+    playTone({ ctx, freq: 1760, duration: 0.12,  gain: 0.06,  type: "sine" });
+    playTone({ ctx, freq: 1320, delay: 0.13, duration: 0.10, gain: 0.055, type: "sine" });
+    playTone({ ctx, freq: 880,  delay: 0.25, duration: 0.18, gain: 0.05,  type: "sine" });
+  } catch {
+    /* audio blocked — ignore */
+  }
+}
+
+// ── Hook ───────────────────────────────────────────────────────────────────────
+
 export function useUiSounds() {
   const ctxRef = useRef<AudioContext | null>(null);
 

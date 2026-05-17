@@ -591,7 +591,6 @@ function WorkflowCard({
   data: { scanned: number; status: string; tone: Tone; micro: ReactNode };
 }) {
   const t = useT();
-  const { playHover } = useUiSounds();
   const Icon = wf.icon;
   const dot =
     data.tone === "risk"
@@ -614,7 +613,6 @@ function WorkflowCard({
     >
       <Link
         to={wf.to}
-        onMouseEnter={playHover}
         className={cn(
           "group flex flex-col h-full p-5 overflow-hidden transition-all",
           PREMIUM_CARD,

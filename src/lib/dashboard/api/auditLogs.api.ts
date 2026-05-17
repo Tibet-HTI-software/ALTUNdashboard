@@ -75,6 +75,29 @@ function rowToEntry(row: AuditLogRow): AuditLogEntry {
 // ── Service ───────────────────────────────────────────────────────────────────
 
 /**
+ * Fetches all audit log entries across every shipment, ordered newest-first.
+ * Used by the Reports page to generate the financial recovery audit CSV.
+ * Returns an empty array in mock/unconfigured mode.
+ */
+export async function getAllAuditLogs(
+  limit = 500,
+): Promise<AuditLogEntry[]> {
+  return withSupabaseFallback(
+    "audit_logs",
+    async () => {
+      const { data, error } = await supabase
+        .from("audit_logs")
+        .select(AUDIT_COLUMNS)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+      if (error) throw error;
+      return (data as AuditLogRow[]).map(rowToEntry);
+    },
+    () => simulateRead(() => [] as AuditLogEntry[], 0),
+  );
+}
+
+/**
  * Fetches audit log entries for a specific shipment, ordered newest-first.
  * Filters by shipment_id OR container_number so records written before the
  * container_number was denormalised are still surfaced.
