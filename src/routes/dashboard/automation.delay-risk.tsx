@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ChevronLeft, Timer } from "lucide-react";
 import { motion } from "framer-motion";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { LoadingState, ErrorState } from "@/components/dashboard/AsyncStates";
 import { DemurrageRiskBoard } from "@/components/dashboard/DemurrageRiskBoard";
+import { ShipmentDetailDrawer } from "@/components/dashboard/ShipmentDetailDrawer";
 import { useRealtimeShipments } from "@/hooks/useRealtimeShipments";
 import { useT } from "@/lib/dashboard/i18n";
 
@@ -19,6 +21,11 @@ function DelayRiskPage() {
   // to ocean_shipments. Falls back to a one-shot fetch in mock/demo mode.
   const { data, loading, error, reload } = useRealtimeShipments();
   const t = useT();
+
+  // Deep-dive drawer selection state.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selectedShipment =
+    data?.find((s) => s.id === selectedId) ?? null;
 
   const header = (
     <div className="mb-5">
@@ -69,11 +76,23 @@ function DelayRiskPage() {
   }
 
   return (
-    <DashboardLayout>
-      {header}
-      <div className="max-h-[calc(100vh-16rem)] overflow-y-auto scroll-thin pr-1">
-        <DemurrageRiskBoard shipments={data} />
-      </div>
-    </DashboardLayout>
+    <>
+      <DashboardLayout>
+        {header}
+        <div className="max-h-[calc(100vh-16rem)] overflow-y-auto scroll-thin pr-1">
+          <DemurrageRiskBoard
+            shipments={data}
+            onSelect={(s) => setSelectedId(s.id)}
+          />
+        </div>
+      </DashboardLayout>
+
+      {/* Deep-dive drawer — renders outside DashboardLayout so it overlays
+          the full viewport including the sidebar. */}
+      <ShipmentDetailDrawer
+        shipment={selectedShipment}
+        onClose={() => setSelectedId(null)}
+      />
+    </>
   );
 }

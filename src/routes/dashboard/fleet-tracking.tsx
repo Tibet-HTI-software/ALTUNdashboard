@@ -9,6 +9,7 @@ import {
   type GlobeArc,
   type GlobePoint,
 } from "@/components/dashboard/FleetGlobe";
+import { ShipmentDetailDrawer } from "@/components/dashboard/ShipmentDetailDrawer";
 import { useRealtimeShipments } from "@/hooks/useRealtimeShipments";
 import { portCoord } from "@/data/dashboard/ports";
 import { useUiSounds } from "@/hooks/useUiSounds";
@@ -107,79 +108,90 @@ function FleetTrackingPage() {
   }
 
   return (
-    <DashboardLayout lockViewport>
-      {header}
+    <>
+      <DashboardLayout lockViewport>
+        {header}
 
-      <div className="flex gap-4 flex-1 min-h-0 min-w-0">
-        {/* Left — vessel list (30%) */}
-        <aside className="w-[30%] min-w-[15rem] flex flex-col card-premium rounded-2xl overflow-hidden">
-          <header className="flex items-center gap-2 px-4 h-12 border-b border-border shrink-0">
-            <Ship className="h-4 w-4 text-brand" />
-            <h2 className="text-sm font-semibold text-foreground">
-              {t("fleet.vessels")}
-            </h2>
-            <span className="ml-auto rounded-full bg-brand/12 px-2 py-0.5 text-[0.65rem] font-bold text-brand">
-              {vessels.length}
-            </span>
-          </header>
-          <ul className="flex-1 min-h-0 overflow-y-auto scroll-thin divide-y divide-border">
-            {vessels.map((s) => {
-              const active = s.id === focusedId;
-              return (
-                <li key={s.id}>
-                  <button
-                    type="button"
-                    onMouseEnter={playHover}
-                    onClick={() => {
-                      setFocusedId(s.id);
-                      playSuccess();
-                    }}
-                    aria-current={active}
-                    className={cn(
-                      "w-full text-left px-4 py-3 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand",
-                      active ? "bg-brand/[0.1]" : "hover:bg-foreground/[0.04]",
-                    )}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-semibold text-foreground truncate">
-                        {s.vessel}
-                      </span>
-                      {s.customsBlock && (
-                        <span className="h-2 w-2 rounded-full bg-rose-500 shrink-0" />
+        <div className="flex gap-4 flex-1 min-h-0 min-w-0">
+          {/* Left — vessel list (30%) */}
+          <aside className="w-[30%] min-w-[15rem] flex flex-col card-premium rounded-2xl overflow-hidden">
+            <header className="flex items-center gap-2 px-4 h-12 border-b border-border shrink-0">
+              <Ship className="h-4 w-4 text-brand" />
+              <h2 className="text-sm font-semibold text-foreground">
+                {t("fleet.vessels")}
+              </h2>
+              <span className="ml-auto rounded-full bg-brand/12 px-2 py-0.5 text-[0.65rem] font-bold text-brand">
+                {vessels.length}
+              </span>
+            </header>
+            <ul className="flex-1 min-h-0 overflow-y-auto scroll-thin divide-y divide-border">
+              {vessels.map((s) => {
+                const active = s.id === focusedId;
+                return (
+                  <li key={s.id}>
+                    <button
+                      type="button"
+                      onMouseEnter={playHover}
+                      onClick={() => {
+                        // focusedId drives both globe camera AND detail drawer.
+                        setFocusedId(active ? null : s.id);
+                        if (!active) playSuccess();
+                      }}
+                      aria-current={active}
+                      aria-expanded={active}
+                      className={cn(
+                        "w-full text-left px-4 py-3 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand",
+                        active ? "bg-brand/[0.1]" : "hover:bg-foreground/[0.04]",
                       )}
-                    </div>
-                    <p className="font-mono text-[0.68rem] text-muted-foreground">
-                      {s.containerNumber}
-                    </p>
-                    <p className="mt-1 flex items-center gap-1 text-xs text-foreground/80">
-                      <Anchor className="h-3 w-3 text-brand shrink-0" />
-                      {s.pol} → {s.pod}
-                    </p>
-                    <p className="text-[0.68rem] text-muted-foreground">
-                      {t("fleet.vesselEta", { eta: s.eta, phase: s.phase })}
-                    </p>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </aside>
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-semibold text-foreground truncate">
+                          {s.vessel}
+                        </span>
+                        {s.customsBlock && (
+                          <span className="h-2 w-2 rounded-full bg-rose-500 shrink-0" />
+                        )}
+                      </div>
+                      <p className="font-mono text-[0.68rem] text-muted-foreground">
+                        {s.containerNumber}
+                      </p>
+                      <p className="mt-1 flex items-center gap-1 text-xs text-foreground/80">
+                        <Anchor className="h-3 w-3 text-brand shrink-0" />
+                        {s.pol} → {s.pod}
+                      </p>
+                      <p className="text-[0.68rem] text-muted-foreground">
+                        {t("fleet.vesselEta", { eta: s.eta, phase: s.phase })}
+                      </p>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </aside>
 
-        {/* Right — globe (70%) */}
-        <div className="flex-1 min-w-0 card-premium rounded-2xl overflow-hidden relative">
-          <FleetGlobe arcs={arcs} points={points} focus={focus} interactive />
-          {focused && (
-            <div className="absolute left-4 bottom-4 rounded-xl glass-panel border px-3.5 py-2.5 shadow-[var(--shadow-elevated)]">
-              <p className="font-mono text-xs font-semibold text-foreground">
-                {focused.containerNumber}
-              </p>
-              <p className="text-[0.68rem] text-muted-foreground">
-                {focused.vessel} · {focused.pol} → {focused.pod}
-              </p>
-            </div>
-          )}
+          {/* Right — globe (70%) */}
+          <div className="flex-1 min-w-0 card-premium rounded-2xl overflow-hidden relative">
+            <FleetGlobe arcs={arcs} points={points} focus={focus} interactive />
+            {focused && (
+              <div className="absolute left-4 bottom-4 rounded-xl glass-panel border px-3.5 py-2.5 shadow-[var(--shadow-elevated)]">
+                <p className="font-mono text-xs font-semibold text-foreground">
+                  {focused.containerNumber}
+                </p>
+                <p className="text-[0.68rem] text-muted-foreground">
+                  {focused.vessel} · {focused.pol} → {focused.pod}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-    </DashboardLayout>
+      </DashboardLayout>
+
+      {/* Detail drawer — overlays the full viewport when a vessel is selected.
+          Closing the drawer also clears the globe camera focus. */}
+      <ShipmentDetailDrawer
+        shipment={focused}
+        onClose={() => setFocusedId(null)}
+      />
+    </>
   );
 }

@@ -44,11 +44,16 @@ type Filter = "all" | "atrisk";
  * Ocean Freight Planner board — containers ranked by remaining terminal
  * free time, colour-coded by D&D risk. Cards glide (`layout`) when the
  * filter changes so the planner can focus on what is burning down.
+ *
+ * Pass `onSelect` to make cards clickable — clicking a card calls
+ * `onSelect(shipment)` so the parent can open the detail drawer.
  */
 export function DemurrageRiskBoard({
   shipments,
+  onSelect,
 }: {
   shipments: OceanShipment[];
+  onSelect?: (shipment: OceanShipment) => void;
 }) {
   const [filter, setFilter] = useState<Filter>("all");
   const { thresholds } = useDemurrageThresholds();
@@ -152,7 +157,25 @@ export function DemurrageRiskBoard({
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.96 }}
                 transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                className={cn("rounded-xl border p-4 card-premium", style.ring)}
+                className={cn(
+                  "rounded-xl border p-4 card-premium",
+                  style.ring,
+                  onSelect &&
+                    "cursor-pointer hover:ring-1 hover:ring-brand/30 hover:shadow-[0_0_0_1px_var(--brand)]/20 transition-shadow",
+                )}
+                onClick={() => onSelect?.(s)}
+                role={onSelect ? "button" : undefined}
+                tabIndex={onSelect ? 0 : undefined}
+                onKeyDown={
+                  onSelect
+                    ? (e) => e.key === "Enter" && onSelect(s)
+                    : undefined
+                }
+                aria-label={
+                  onSelect
+                    ? `Open detail for ${s.containerNumber}`
+                    : undefined
+                }
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
