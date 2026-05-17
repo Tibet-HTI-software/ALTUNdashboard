@@ -18,9 +18,53 @@ import { buildOceanShipments } from "@/data/dashboard/oceanFreight";
 import { demoAction } from "@/lib/dashboard/demo";
 import { useT } from "@/lib/dashboard/i18n";
 import { useGlobalSearch } from "@/lib/dashboard/search";
+import { useRealtimeConnectionStatus } from "@/hooks/useRealtimeConnectionStatus";
+import type { RealtimeConnectionStatus } from "@/hooks/useRealtimeShipments";
 import { RoleSwitcher } from "./RoleSwitcher";
 
 const OPERATIONS_COUNT = 12;
+
+// ── Live status pill — driven by WebSocket channel state ─────────────────────
+
+function LiveStatusPill({
+  status,
+  liveLabel,
+}: {
+  status: RealtimeConnectionStatus;
+  liveLabel: string;
+}) {
+  if (status === "reconnecting") {
+    return (
+      <span className="inline-flex items-center gap-2 rounded-full border border-amber-500/25 bg-amber-500/10 px-3 h-7 text-[0.7rem] font-semibold text-amber-600 dark:text-amber-300">
+        {/* Double-layer ping: outer fades, inner is solid */}
+        <span className="relative h-1.5 w-1.5 shrink-0">
+          <span className="animate-ping absolute inset-0 rounded-full bg-amber-500 opacity-70" />
+          <span className="relative block h-1.5 w-1.5 rounded-full bg-amber-500" />
+        </span>
+        Syncing…
+      </span>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <span className="inline-flex items-center gap-2 rounded-full border border-rose-500/25 bg-rose-500/10 px-3 h-7 text-[0.7rem] font-semibold text-rose-600 dark:text-rose-300">
+        <span className="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0" />
+        Reconnecting…
+      </span>
+    );
+  }
+
+  // idle | connecting | live → green (connecting is transient, no flash needed)
+  return (
+    <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 h-7 text-[0.7rem] font-semibold text-emerald-600 dark:text-emerald-300">
+      <span className="relative h-1.5 w-1.5 shrink-0">
+        <span className="status-pulse absolute inset-0 rounded-full bg-emerald-500" />
+      </span>
+      {liveLabel}
+    </span>
+  );
+}
 
 interface Props {
   onOpenSidebar: () => void;
@@ -48,6 +92,7 @@ export function DashboardTopbar({ onOpenSidebar }: Props) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const t = useT();
+  const wsStatus = useRealtimeConnectionStatus();
 
   // Ocean Freight shipments — searchable by container, B/L and vessel.
   const oceanShipments = useMemo(() => buildOceanShipments(), []);
@@ -156,12 +201,7 @@ export function DashboardTopbar({ onOpenSidebar }: Props) {
 
         {/* Live status pill + operations indicator */}
         <div className="hidden md:flex items-center gap-2">
-          <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 h-7 text-[0.7rem] font-semibold text-emerald-600 dark:text-emerald-300">
-            <span className="relative h-1.5 w-1.5">
-              <span className="status-pulse absolute inset-0 rounded-full bg-emerald-500" />
-            </span>
-            {t("top.systemsLive")}
-          </span>
+          <LiveStatusPill status={wsStatus} liveLabel={t("top.systemsLive")} />
           <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-foreground/[0.03] px-3 h-7 text-[0.7rem] font-medium text-muted-foreground">
             <Activity className="h-3 w-3 text-brand" />
             {t("top.operationsActive", { count: OPERATIONS_COUNT })}
