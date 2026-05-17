@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import {
@@ -6,6 +6,7 @@ import {
   ArrowUpFromLine,
   Box,
   Mail,
+  Plus,
   Search,
   User,
 } from "lucide-react";
@@ -13,7 +14,7 @@ import { cn } from "@/lib/utils";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { LoadingState, ErrorState } from "@/components/dashboard/AsyncStates";
 import { EmptyState } from "@/components/dashboard/EmptyState";
-import { demoSuccess } from "@/lib/dashboard/demo";
+import { NewShipmentModal } from "@/components/dashboard/NewShipmentModal";
 import {
   getOceanShipments,
   getFreeTimeStatus,
@@ -66,6 +67,7 @@ function CustomersPage() {
   const { query } = useGlobalSearch();
   const { thresholds } = useDemurrageThresholds();
   const t = useT();
+  const [newShipmentOpen, setNewShipmentOpen] = useState(false);
 
   const rows = useMemo(() => data ?? [], [data]);
 
@@ -120,13 +122,22 @@ function CustomersPage() {
   }, [profiles, query]);
 
   const header = (
-    <div className="mb-5">
-      <h1 className="font-display text-2xl sm:text-[1.75rem] font-bold text-foreground tracking-tight">
-        {t("page.customers.title")}
-      </h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        {t("page.customers.sub")}
-      </p>
+    <div className="mb-5 flex items-start justify-between gap-4">
+      <div>
+        <h1 className="font-display text-2xl sm:text-[1.75rem] font-bold text-foreground tracking-tight">
+          {t("page.customers.title")}
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {t("page.customers.sub")}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={() => setNewShipmentOpen(true)}
+        className="shrink-0 inline-flex items-center gap-1.5 h-9 rounded-lg bg-brand text-white px-3.5 text-sm font-semibold hover:bg-brand-strong transition-colors shadow-[0_4px_16px_-6px_var(--brand)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+      >
+        <Plus className="h-4 w-4" /> New Shipment
+      </button>
     </div>
   );
 
@@ -168,17 +179,18 @@ function CustomersPage() {
         {filtered.length === 0 && (
           <EmptyState
             title="No traders found"
-            description="No importer or exporter profiles match — connect a forwarder feed to import them."
-            actionLabel="Connect Forwarder API"
-            onAction={() =>
-              demoSuccess(
-                "Forwarder API",
-                "This would open the integration setup.",
-              )
-            }
+            description="No importer or exporter profiles match — add an ocean shipment to register a trader profile."
+            actionLabel="Add Ocean Shipment"
+            onAction={() => setNewShipmentOpen(true)}
           />
         )}
       </div>
+
+      <NewShipmentModal
+        open={newShipmentOpen}
+        onClose={() => setNewShipmentOpen(false)}
+        onCreated={reload}
+      />
     </DashboardLayout>
   );
 }

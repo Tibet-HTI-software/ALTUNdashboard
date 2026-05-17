@@ -29,6 +29,7 @@ import {
   FILTER_CARRIERS,
 } from "@/lib/dashboard/DashboardFilterContext";
 import { RoleSwitcher } from "./RoleSwitcher";
+import { NewShipmentModal } from "./NewShipmentModal";
 
 const OPERATIONS_COUNT = 12;
 
@@ -210,6 +211,7 @@ interface SearchHit {
 export function DashboardTopbar({ onOpenSidebar }: Props) {
   const { query, setQuery } = useGlobalSearch();
   const [open, setOpen] = useState(false);
+  const [newShipmentOpen, setNewShipmentOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const t = useT();
   const wsStatus = useRealtimeConnectionStatus();
@@ -308,6 +310,11 @@ export function DashboardTopbar({ onOpenSidebar }: Props) {
   } as const;
 
   return (
+    <>
+    <NewShipmentModal
+      open={newShipmentOpen}
+      onClose={() => setNewShipmentOpen(false)}
+    />
     <header className="sticky top-0 z-20 glass-panel border-b border-border">
       <div className="flex items-center gap-3 px-4 sm:px-6 lg:px-8 h-[4.25rem]">
         {/* Mobile sidebar toggle */}
@@ -424,7 +431,7 @@ export function DashboardTopbar({ onOpenSidebar }: Props) {
           {/* Primary action */}
           <button
             type="button"
-            onClick={() => demoAction("this would open the new shipment form.")}
+            onClick={() => setNewShipmentOpen(true)}
             className="hidden sm:inline-flex items-center gap-1.5 h-9 rounded-lg bg-brand text-white px-3.5 text-sm font-semibold hover:bg-brand-strong transition-colors shadow-[0_4px_16px_-6px_var(--brand)]"
           >
             <Plus className="h-4 w-4" /> {t("top.newShipment")}
@@ -437,5 +444,6 @@ export function DashboardTopbar({ onOpenSidebar }: Props) {
         </div>
       </div>
     </header>
+    </>
   );
 }

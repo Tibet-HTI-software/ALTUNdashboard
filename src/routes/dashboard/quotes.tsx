@@ -5,19 +5,23 @@ import {
   ArrowDownToLine,
   ArrowUpFromLine,
   Check,
+  Loader2,
+  Plus,
   Search,
   Ship,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { LoadingState, ErrorState } from "@/components/dashboard/AsyncStates";
 import { EmptyState } from "@/components/dashboard/EmptyState";
-import { getQuotes, useAsyncData } from "@/lib/dashboard/api";
+import { NewQuoteModal } from "@/components/dashboard/NewQuoteModal";
+import { getQuotes, updateQuoteStatus, useAsyncData } from "@/lib/dashboard/api";
 import type { Quote } from "@/lib/dashboard/types";
 import { useGlobalSearch } from "@/lib/dashboard/search";
 import { useT } from "@/lib/dashboard/i18n";
-import { demoSuccess } from "@/lib/dashboard/demo";
+import { demoError } from "@/lib/dashboard/demo";
 
 export const Route = createFileRoute("/dashboard/quotes")({
   head: () => ({ meta: [{ title: "Quotes — Altun Logistics Operations" }] }),
@@ -49,6 +53,9 @@ function QuotesPage() {
 
   const [openId, setOpenId] = useState<string | null>(null);
   const [decisions, setDecisions] = useState<Record<string, Decision>>({});
+  /** ID of the quote currently being approved/declined (shows spinner). */
+  const [deciding, setDeciding] = useState<string | null>(null);
+  const [newQuoteOpen, setNewQuoteOpen] = useState(false);
 
   const rows = useMemo(() => data ?? [], [data]);
   const filtered = useMemo(() => {
@@ -65,23 +72,48 @@ function QuotesPage() {
 
   const open = filtered.find((r) => r.id === openId) ?? null;
 
-  function decide(id: string, decision: Decision) {
-    setDecisions((d) => ({ ...d, [id]: decision }));
-    setOpenId(null);
-    demoSuccess(
-      decision === "approved" ? "Quote approved" : "Quote declined",
-      `${id} marked as ${decision}.`,
-    );
+  async function decide(id: string, decision: Decision) {
+    if (deciding) return; // prevent double-submit
+    setDeciding(id);
+    try {
+      await updateQuoteStatus(
+        id,
+        decision === "approved" ? "Approved" : "Rejected",
+      );
+      setDecisions((d) => ({ ...d, [id]: decision }));
+      setOpenId(null);
+      toast.success(
+        decision === "approved" ? "Quote approved" : "Quote declined",
+        { description: `${id} status updated in the system.` },
+      );
+      reload(); // re-sync list from Supabase
+    } catch (err) {
+      demoError(
+        "Update failed",
+        err instanceof Error ? err.message : "Could not update quote status.",
+      );
+    } finally {
+      setDeciding(null);
+    }
   }
 
   const header = (
-    <div className="mb-5">
-      <h1 className="font-display text-2xl sm:text-[1.75rem] font-bold text-foreground tracking-tight">
-        {t("page.quotes.title")}
-      </h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        {t("page.quotes.sub")}
-      </p>
+    <div className="mb-5 flex items-start justify-between gap-4">
+      <div>
+        <h1 className="font-display text-2xl sm:text-[1.75rem] font-bold text-foreground tracking-tight">
+          {t("page.quotes.title")}
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {t("page.quotes.sub")}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={() => setNewQuoteOpen(true)}
+        className="shrink-0 inline-flex items-center gap-1.5 h-9 rounded-lg bg-brand text-white px-3.5 text-sm font-semibold hover:bg-brand-strong transition-colors shadow-[0_4px_16px_-6px_var(--brand)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+      >
+        <Plus className="h-4 w-4" /> New Quote
+      </button>
     </div>
   );
 
@@ -131,9 +163,7 @@ function QuotesPage() {
             title="No open quotes"
             description="Nothing awaiting review — new spot and contract rate requests will appear here."
             actionLabel="New Quote"
-            onAction={() =>
-              demoSuccess("New quote", "This would open the quote form.")
-            }
+            onAction={() => setNewQuoteOpen(true)}
           />
         )}
       </div>
@@ -143,11 +173,18 @@ function QuotesPage() {
           <QuoteDrawer
             q={open}
             decision={decisions[open.id]}
+            deciding={deciding === open.id}
             onClose={() => setOpenId(null)}
             onDecide={decide}
           />
         )}
       </AnimatePresence>
+
+      <NewQuoteModal
+        open={newQuoteOpen}
+        onClose={() => setNewQuoteOpen(false)}
+        onCreated={reload}
+      />
     </DashboardLayout>
   );
 }
@@ -228,11 +265,14 @@ function QuoteCard({
 function QuoteDrawer({
   q,
   decision,
+  deciding,
   onClose,
   onDecide,
 }: {
   q: Quote;
   decision?: Decision;
+  /** True while the approve/decline request is in-flight. */
+  deciding: boolean;
   onClose: () => void;
   onDecide: (id: string, decision: Decision) => void;
 }) {
@@ -341,16 +381,23 @@ function QuoteDrawer({
               <button
                 type="button"
                 onClick={() => onDecide(q.id, "approved")}
-                className="flex-1 inline-flex items-center justify-center gap-1.5 h-10 rounded-xl bg-brand text-white text-sm font-semibold hover:bg-brand-strong transition-colors shadow-[0_6px_18px_-8px_var(--brand)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                disabled={deciding}
+                className="flex-1 inline-flex items-center justify-center gap-1.5 h-10 rounded-xl bg-brand text-white text-sm font-semibold hover:bg-brand-strong transition-colors shadow-[0_6px_18px_-8px_var(--brand)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                <Check className="h-4 w-4" />
+                {deciding ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="h-4 w-4" />
+                )}
                 {t("quote.approve")}
               </button>
               <button
                 type="button"
                 onClick={() => onDecide(q.id, "declined")}
-                className="inline-flex items-center justify-center gap-1.5 h-10 rounded-xl border border-border bg-foreground/[0.03] px-4 text-sm font-medium text-foreground hover:border-rose-500/40 hover:text-rose-600 dark:hover:text-rose-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                disabled={deciding}
+                className="inline-flex items-center justify-center gap-1.5 h-10 rounded-xl border border-border bg-foreground/[0.03] px-4 text-sm font-medium text-foreground hover:border-rose-500/40 hover:text-rose-600 dark:hover:text-rose-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:opacity-60 disabled:cursor-not-allowed"
               >
+                {deciding && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 {t("quote.decline")}
               </button>
             </div>

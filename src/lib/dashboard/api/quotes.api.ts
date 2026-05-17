@@ -169,6 +169,8 @@ export async function updateQuoteStatus(
 
 export async function createQuote(input: CreateQuoteInput): Promise<Quote> {
   const id = `Q-${new Date().getFullYear()}-${Math.floor(Math.random() * 9000 + 1000)}`;
+  const requestedAt = new Date().toISOString().slice(0, 10);
+
   const draft: Quote = {
     id,
     customer: input.customer,
@@ -191,7 +193,7 @@ export async function createQuote(input: CreateQuoteInput): Promise<Quote> {
     delivery: input.delivery,
     urgency: input.urgency,
     status: "New",
-    requestedAt: new Date().toISOString().slice(0, 10),
+    requestedAt,
     assignedTo: "Sales",
     notes: input.notes,
     origin: input.portOfLoading,
@@ -200,5 +202,49 @@ export async function createQuote(input: CreateQuoteInput): Promise<Quote> {
       input.direction === "Export" ? "Sea Freight FCL" : "Sea Freight LCL",
     cargo: input.goodsDescription,
   };
-  return simulateSuccess(draft);
+
+  return withSupabaseFallback(
+    "quotes",
+    async () => {
+      const row = {
+        reference: id,
+        customer_name: input.customer,
+        contact_name: input.contactName ?? null,
+        contact_email: input.contactEmail ?? null,
+        contact_phone: input.contactPhone ?? null,
+        direction: input.direction,
+        container: input.container,
+        gauge: input.gauge ?? null,
+        goods_description: input.goodsDescription,
+        hs_code: input.hsCode ?? null,
+        gross_weight_kg: input.grossWeightKg,
+        net_weight_kg: input.netWeightKg,
+        port_of_loading: input.portOfLoading,
+        port_of_destination: input.portOfDestination,
+        incoterm: input.incoterm,
+        insurance: input.insurance,
+        vgm_required: input.vgmRequired,
+        loading_address: input.loading.address,
+        loading_postal_code: input.loading.postalCode,
+        loading_city: input.loading.city,
+        loading_country: input.loading.country,
+        delivery_address: input.delivery.address,
+        delivery_postal_code: input.delivery.postalCode,
+        delivery_city: input.delivery.city,
+        delivery_country: input.delivery.country,
+        urgency: input.urgency,
+        status: "New" as QuoteStatus,
+        requested_at: requestedAt,
+        notes: input.notes ?? null,
+      };
+      const { data, error } = await supabase
+        .from("quotes")
+        .insert(row)
+        .select(COLUMNS)
+        .single();
+      if (error) throw error;
+      return rowToQuote(data as QuoteRow);
+    },
+    () => Promise.resolve(draft),
+  );
 }

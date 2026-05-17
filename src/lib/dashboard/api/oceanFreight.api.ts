@@ -181,6 +181,126 @@ export async function getOceanShipments(): Promise<OceanShipment[]> {
   );
 }
 
+/* ── Write services ───────────────────────────────────────────────── */
+
+export interface CreateOceanShipmentInput {
+  containerNumber: string;
+  blNumber: string;
+  containerType: ContainerType;
+  direction: ShipmentDirection;
+  carrier: CarrierName;
+  vessel: string;
+  voyage: string;
+  pol: string;
+  pod: string;
+  terminal: string;
+  trader: string;
+  traderContact: string;
+  traderEmail: string;
+  phase: ShipmentPhase;
+  etd: string;
+  eta: string;
+  freeDaysTotal: number;
+  demurrageRatePerDay: number;
+  teu: number;
+  weightKg: number;
+  commodity?: string;
+}
+
+/**
+ * Insert a new ocean shipment.
+ *
+ * Live: Supabase INSERT into ocean_shipments — the Realtime channel on
+ * `ocean_shipments` fires immediately, pushing the new row into every
+ * active `useRealtimeShipments` subscriber without a manual reload.
+ *
+ * Mock: returns a synthesised OceanShipment so the UI can show a toast
+ * confirmation even without a live DB (the list won't auto-update in mock
+ * mode since there is no WS subscription to trigger a re-fetch).
+ */
+export async function createOceanShipment(
+  input: CreateOceanShipmentInput,
+): Promise<OceanShipment> {
+  const year = new Date().getFullYear();
+  const seq = String(Math.floor(Math.random() * 9000 + 1000));
+  const id = `ALT-OF-${year}-${seq}`;
+
+  // Compute absolute free-time expiry from ETA + contractual free days.
+  const etaMs = new Date(input.eta).getTime();
+  const freeTimeExpiresAt = new Date(
+    etaMs + input.freeDaysTotal * 86_400_000,
+  ).toISOString();
+
+  const draft: OceanShipment = {
+    id,
+    blNumber: input.blNumber || `BL${seq}`,
+    containerNumber: input.containerNumber,
+    containerType: input.containerType,
+    direction: input.direction,
+    carrier: input.carrier,
+    vessel: input.vessel,
+    voyage: input.voyage || "—",
+    pol: input.pol,
+    pod: input.pod,
+    terminal: input.terminal || input.pod,
+    trader: input.trader,
+    traderType: input.direction === "Export" ? "Exporter" : "Importer",
+    traderContact: input.traderContact,
+    traderEmail: input.traderEmail,
+    phase: input.phase,
+    etd: input.etd,
+    eta: input.eta,
+    dischargedAt: null,
+    freeDaysTotal: input.freeDaysTotal,
+    freeTimeExpiresAt,
+    demurrageRatePerDay: input.demurrageRatePerDay,
+    customsBlock: null,
+    teu: input.teu,
+    weightKg: input.weightKg,
+    commodity: input.commodity ?? "",
+  };
+
+  return withSupabaseFallback(
+    "ocean_shipments",
+    async () => {
+      const row = {
+        id,
+        bl_number: draft.blNumber,
+        container_number: draft.containerNumber,
+        container_type: draft.containerType,
+        direction: draft.direction,
+        carrier: draft.carrier,
+        vessel: draft.vessel,
+        voyage: draft.voyage,
+        pol: draft.pol,
+        pod: draft.pod,
+        terminal: draft.terminal,
+        trader: draft.trader,
+        trader_contact: draft.traderContact || null,
+        trader_email: draft.traderEmail || null,
+        phase: draft.phase,
+        etd: draft.etd || null,
+        eta: draft.eta,
+        free_days_total: draft.freeDaysTotal,
+        free_time_expires_at: draft.freeTimeExpiresAt,
+        demurrage_rate_per_day: draft.demurrageRatePerDay,
+        customs_block: null,
+        teu: draft.teu,
+        weight_kg: draft.weightKg,
+        commodity: draft.commodity || null,
+      };
+      const { data, error } = await supabase
+        .from("ocean_shipments")
+        .insert(row)
+        .select(SHIPMENT_COLUMNS)
+        .single();
+      if (error) throw error;
+      return rowToShipment(data as ShipmentRow);
+    },
+    () => Promise.resolve(draft),
+  );
+}
+
 /** Customer status emails + their AI-drafted replies (mock-only for now). */
 export async function getCustomerEmails(): Promise<CustomerEmail[]> {
   return simulateRead(() =>
