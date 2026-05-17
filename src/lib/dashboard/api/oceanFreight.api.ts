@@ -1,17 +1,24 @@
 /**
- * Ocean Freight service — dual-mode mock API.
+ * Ocean Freight service — Supabase-first, mock-fallback.
  *
- * Routes/components import from `@/lib/dashboard/api` and never touch the
- * raw fixtures. The mock fixtures live in `data/dashboard/oceanFreight.ts`;
- * swapping to Supabase later only changes the bodies below.
+ * `getOceanShipments()` attempts a live Supabase query; if the env vars
+ * are missing or the `ocean_shipments` table is not yet applied, it
+ * transparently falls back to the `data/dashboard/oceanFreight.ts` fixtures
+ * via `withSupabaseFallback`. The app therefore never crashes, online or off.
  */
 
 import { simulateRead } from "./client";
+import { supabase, withSupabaseFallback } from "./supabase";
 import {
   buildOceanShipments,
   buildCustomerEmails,
   type OceanShipment,
   type CustomerEmail,
+  type ContainerType,
+  type ShipmentDirection,
+  type ShipmentPhase,
+  type CustomsBlockReason,
+  type CarrierName,
 } from "@/data/dashboard/oceanFreight";
 
 export type {
@@ -81,16 +88,100 @@ export function getFreeTimeStatus(
   return { risk, hoursLeft, daysLeft, accruedEur, label };
 }
 
+/* ── Supabase row mapping ─────────────────────────────────────────── */
+
+/** Shape of a row from the `shipments` table (snake_case). */
+interface ShipmentRow {
+  id: string;
+  bl_number: string;
+  container_number: string;
+  container_type: string;
+  direction: string;
+  carrier: string;
+  vessel: string;
+  voyage: string;
+  pol: string;
+  pod: string;
+  terminal: string;
+  trader: string;
+  trader_contact: string | null;
+  trader_email: string | null;
+  phase: string;
+  etd: string | null;
+  eta: string | null;
+  discharged_at: string | null;
+  free_days_total: number;
+  free_time_expires_at: string | null;
+  demurrage_rate_per_day: number;
+  customs_block: string | null;
+  teu: number;
+  weight_kg: number;
+  commodity: string | null;
+}
+
+const SHIPMENT_COLUMNS = `
+  id, bl_number, container_number, container_type, direction, carrier,
+  vessel, voyage, pol, pod, terminal, trader, trader_contact, trader_email,
+  phase, etd, eta, discharged_at, free_days_total, free_time_expires_at,
+  demurrage_rate_per_day, customs_block, teu, weight_kg, commodity
+`;
+
+function rowToShipment(row: ShipmentRow): OceanShipment {
+  return {
+    id: row.id,
+    blNumber: row.bl_number,
+    containerNumber: row.container_number,
+    containerType: row.container_type as ContainerType,
+    direction: row.direction as ShipmentDirection,
+    carrier: row.carrier as CarrierName,
+    vessel: row.vessel,
+    voyage: row.voyage,
+    pol: row.pol,
+    pod: row.pod,
+    terminal: row.terminal,
+    trader: row.trader,
+    traderType: row.direction === "Export" ? "Exporter" : "Importer",
+    traderContact: row.trader_contact ?? "",
+    traderEmail: row.trader_email ?? "",
+    phase: row.phase as ShipmentPhase,
+    etd: row.etd ?? "",
+    eta: row.eta ?? "",
+    dischargedAt: row.discharged_at,
+    freeDaysTotal: row.free_days_total,
+    freeTimeExpiresAt: row.free_time_expires_at ?? new Date().toISOString(),
+    demurrageRatePerDay: row.demurrage_rate_per_day,
+    customsBlock: (row.customs_block as CustomsBlockReason | null) ?? null,
+    teu: row.teu,
+    weightKg: row.weight_kg,
+    commodity: row.commodity ?? "",
+  };
+}
+
 /* ── Read services ────────────────────────────────────────────────── */
 
-/** All ocean-freight shipments, newest booking first. */
+/**
+ * All ocean-freight shipments, newest booking first.
+ * Live Supabase query when configured; mock fixtures otherwise.
+ */
 export async function getOceanShipments(): Promise<OceanShipment[]> {
-  return simulateRead(() =>
-    buildOceanShipments().sort((a, b) => b.id.localeCompare(a.id)),
+  return withSupabaseFallback(
+    "ocean_shipments",
+    async () => {
+      const { data, error } = await supabase
+        .from("ocean_shipments")
+        .select(SHIPMENT_COLUMNS)
+        .order("id", { ascending: false });
+      if (error) throw error;
+      return (data as ShipmentRow[]).map(rowToShipment);
+    },
+    () =>
+      simulateRead(() =>
+        buildOceanShipments().sort((a, b) => b.id.localeCompare(a.id)),
+      ),
   );
 }
 
-/** Customer status emails + their AI-drafted replies. */
+/** Customer status emails + their AI-drafted replies (mock-only for now). */
 export async function getCustomerEmails(): Promise<CustomerEmail[]> {
   return simulateRead(() =>
     buildCustomerEmails().sort(
@@ -110,34 +201,35 @@ export interface CeoSnapshot {
   exportCount: number;
 }
 
-/** Aggregated, high-level metrics for the CEO / Management view. */
+/**
+ * Aggregated, high-level metrics for the CEO / Management view. Built on
+ * top of `getOceanShipments()`, so it inherits the same dual-mode source.
+ */
 export async function getCeoSnapshot(): Promise<CeoSnapshot> {
-  return simulateRead(() => {
-    const ships = buildOceanShipments();
-    const active = ships.filter((s) => s.phase !== "Delivered");
-    const holds = ships.filter((s) => s.customsBlock !== null);
-    const exposure = ships.reduce(
-      (sum, s) => sum + getFreeTimeStatus(s).accruedEur,
-      0,
-    );
+  const ships = await getOceanShipments();
+  const active = ships.filter((s) => s.phase !== "Delivered");
+  const holds = ships.filter((s) => s.customsBlock !== null);
+  const exposure = ships.reduce(
+    (sum, s) => sum + getFreeTimeStatus(s).accruedEur,
+    0,
+  );
 
-    const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    const bookingsSeed = [6, 9, 7, 11, 8, 4, 5];
-    const deliveredSeed = [5, 7, 8, 6, 9, 3, 4];
-    const trend = days.map((day, i) => ({
-      day,
-      bookings: bookingsSeed[i],
-      delivered: deliveredSeed[i],
-    }));
+  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const bookingsSeed = [6, 9, 7, 11, 8, 4, 5];
+  const deliveredSeed = [5, 7, 8, 6, 9, 3, 4];
+  const trend = days.map((day, i) => ({
+    day,
+    bookings: bookingsSeed[i],
+    delivered: deliveredSeed[i],
+  }));
 
-    return {
-      trend,
-      activeContainers: active.reduce((n, s) => n + s.teu, 0),
-      onTimePct: 0.94,
-      customsHolds: holds.length,
-      demurrageExposureEur: exposure,
-      importCount: ships.filter((s) => s.direction === "Import").length,
-      exportCount: ships.filter((s) => s.direction === "Export").length,
-    };
-  });
+  return {
+    trend,
+    activeContainers: active.reduce((n, s) => n + s.teu, 0),
+    onTimePct: 0.94,
+    customsHolds: holds.length,
+    demurrageExposureEur: exposure,
+    importCount: ships.filter((s) => s.direction === "Import").length,
+    exportCount: ships.filter((s) => s.direction === "Export").length,
+  };
 }

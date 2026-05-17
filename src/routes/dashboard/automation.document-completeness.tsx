@@ -13,6 +13,8 @@ import {
 import { cn } from "@/lib/utils";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { LoadingState, ErrorState } from "@/components/dashboard/AsyncStates";
+import { FleetGlobe, type GlobeArc } from "@/components/dashboard/FleetGlobe";
+import { portCoord } from "@/data/dashboard/ports";
 import {
   getOceanShipments,
   useAsyncData,
@@ -90,12 +92,25 @@ function DocumentCompletenessPage() {
     );
   }
 
+  const mapArcs: GlobeArc[] = data.slice(0, 8).map((s) => {
+    const a = portCoord(s.pol);
+    const b = portCoord(s.pod);
+    return {
+      startLat: a.lat,
+      startLng: a.lng,
+      endLat: b.lat,
+      endLng: b.lng,
+    };
+  });
+
   return (
     <DashboardLayout>
       {header}
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel title={t("auto.panel.map")} icon={Navigation}>
-          <VesselMap shipments={data} />
+          <div className="h-[230px]">
+            <FleetGlobe arcs={mapArcs} interactive={false} autoRotate />
+          </div>
         </Panel>
         <Panel title={t("auto.panel.exceptions")} icon={FileSearch}>
           <ExceptionTable shipments={data} />
@@ -130,83 +145,6 @@ function Panel({
       </header>
       <div className="p-4 flex-1 min-h-0">{children}</div>
     </section>
-  );
-}
-
-/* ── Vessel position map (stylised SVG) ───────────────────── */
-
-function VesselMap({ shipments }: { shipments: OceanShipment[] }) {
-  // Place each in-transit / discharged vessel along a pseudo route lane.
-  const vessels = shipments
-    .filter((s) => s.phase !== "Delivered")
-    .slice(0, 9)
-    .map((s, i) => {
-      const progress =
-        s.phase === "Booked" ? 0.08 : s.phase === "In Transit" ? 0.5 : 0.92;
-      return {
-        id: s.id,
-        x: 12 + progress * 76,
-        y: 16 + (i % 9) * 8.4,
-        risk: s.customsBlock !== null,
-        label: s.containerNumber,
-      };
-    });
-
-  return (
-    <div className="relative h-[200px] rounded-xl overflow-hidden border border-border bg-[oklch(0.95_0.02_240)] dark:bg-[oklch(0.2_0.03_250)]">
-      <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full">
-        {/* lane guides */}
-        {[...Array(9)].map((_, i) => (
-          <line
-            key={i}
-            x1="12"
-            y1={16 + i * 8.4}
-            x2="88"
-            y2={16 + i * 8.4}
-            stroke={BRAND}
-            strokeWidth="0.3"
-            strokeDasharray="1.5 1.5"
-            opacity="0.25"
-          />
-        ))}
-        {/* port nodes */}
-        <circle cx="12" cy="50" r="2.2" fill={BRAND} opacity="0.7" />
-        <circle cx="88" cy="50" r="2.2" fill={BRAND} opacity="0.7" />
-        {/* vessels */}
-        {vessels.map((v) => (
-          <g key={v.id}>
-            <circle
-              cx={v.x}
-              cy={v.y}
-              r="2.6"
-              fill={v.risk ? "oklch(0.62 0.2 18)" : BRAND}
-              opacity="0.9"
-            >
-              <animate
-                attributeName="r"
-                values="2.6;3.4;2.6"
-                dur="2.4s"
-                repeatCount="indefinite"
-              />
-            </circle>
-          </g>
-        ))}
-      </svg>
-      <div className="absolute left-2 top-2 text-[0.6rem] font-semibold uppercase tracking-wider text-muted-foreground">
-        Loading port
-      </div>
-      <div className="absolute right-2 top-2 text-[0.6rem] font-semibold uppercase tracking-wider text-muted-foreground">
-        Discharge port
-      </div>
-      <div className="absolute left-2 bottom-2 flex items-center gap-3 text-[0.6rem] text-muted-foreground">
-        <span className="flex items-center gap-1">
-          <span className="h-2 w-2 rounded-full bg-brand" /> On track
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="h-2 w-2 rounded-full bg-rose-500" /> Doc exception
-        </span>
-      </div>
-    </div>
   );
 }
 

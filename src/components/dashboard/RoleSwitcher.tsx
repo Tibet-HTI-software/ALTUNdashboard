@@ -4,6 +4,7 @@ import { Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROLES, getRoleMeta, useRole } from "@/lib/dashboard/role";
 import { useT } from "@/lib/dashboard/i18n";
+import { useUiSounds } from "@/hooks/useUiSounds";
 
 /**
  * Role-preview switcher for the topbar.
@@ -16,6 +17,7 @@ import { useT } from "@/lib/dashboard/i18n";
 export function RoleSwitcher() {
   const { role, setRole } = useRole();
   const t = useT();
+  const { playRoleSwitch } = useUiSounds();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -93,6 +95,7 @@ export function RoleSwitcher() {
                       role="menuitemradio"
                       aria-checked={isActive}
                       onClick={() => {
+                        if (r.value !== role) playRoleSwitch();
                         setRole(r.value);
                         setOpen(false);
                       }}

@@ -136,17 +136,21 @@ end;
 $$;
 
 -- Returns true if the current authenticated user has any of the given roles.
+-- NOTE: plpgsql used (not sql) so the body is not validated at creation time,
+-- allowing forward-reference to the profiles table defined below.
 create or replace function has_role(roles user_role[]) returns boolean
-language sql
+language plpgsql
 stable
 security definer
 set search_path = public
 as $$
-  select exists (
+begin
+  return exists (
     select 1 from profiles
     where id = auth.uid()
       and role = any(roles)
   );
+end;
 $$;
 
 -- ---------------------------------------------------------------------

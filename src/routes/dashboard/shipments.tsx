@@ -5,6 +5,8 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { LoadingState, ErrorState } from "@/components/dashboard/AsyncStates";
+import { EmptyState } from "@/components/dashboard/EmptyState";
+import { demoSuccess } from "@/lib/dashboard/demo";
 import {
   getOceanShipments,
   getFreeTimeStatus,
@@ -245,9 +247,14 @@ function ShipmentsPage() {
             </tbody>
           </table>
           {filtered.length === 0 && (
-            <p className="px-4 py-10 text-center text-sm text-muted-foreground">
-              {t("common.noMatches")}
-            </p>
+            <EmptyState
+              title="No shipments found"
+              description="No sea-freight bookings match the current filters — adjust them or create a new shipment."
+              actionLabel="Create Shipment"
+              onAction={() =>
+                demoSuccess("New shipment", "This would open the booking form.")
+              }
+            />
           )}
         </div>
       </div>

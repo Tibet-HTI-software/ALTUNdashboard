@@ -11,6 +11,7 @@ import {
 import { Toaster } from "sonner";
 import appCss from "../styles.css?url";
 import { THEME_INIT_SCRIPT } from "@/lib/dashboard/theme";
+import { AuthProvider } from "@/lib/auth/AuthContext";
 
 /**
  * Dashboard-only project root. The public marketing chrome
@@ -142,7 +143,9 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
+      <AuthProvider>
+        <Outlet />
+      </AuthProvider>
       <Toaster
         position="bottom-right"
         toastOptions={{

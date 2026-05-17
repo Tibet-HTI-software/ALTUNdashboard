@@ -12,6 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { LoadingState, ErrorState } from "@/components/dashboard/AsyncStates";
+import { EmptyState } from "@/components/dashboard/EmptyState";
 import { getQuotes, useAsyncData } from "@/lib/dashboard/api";
 import type { Quote } from "@/lib/dashboard/types";
 import { useGlobalSearch } from "@/lib/dashboard/search";
@@ -126,9 +127,14 @@ function QuotesPage() {
           ))}
         </div>
         {filtered.length === 0 && (
-          <p className="py-10 text-center text-sm text-muted-foreground">
-            {t("common.noMatches")}
-          </p>
+          <EmptyState
+            title="No open quotes"
+            description="Nothing awaiting review — new spot and contract rate requests will appear here."
+            actionLabel="New Quote"
+            onAction={() =>
+              demoSuccess("New quote", "This would open the quote form.")
+            }
+          />
         )}
       </div>
 

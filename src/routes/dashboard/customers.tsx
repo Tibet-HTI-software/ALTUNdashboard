@@ -12,6 +12,8 @@ import {
 import { cn } from "@/lib/utils";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { LoadingState, ErrorState } from "@/components/dashboard/AsyncStates";
+import { EmptyState } from "@/components/dashboard/EmptyState";
+import { demoSuccess } from "@/lib/dashboard/demo";
 import {
   getOceanShipments,
   getFreeTimeStatus,
@@ -164,9 +166,17 @@ function CustomersPage() {
           ))}
         </div>
         {filtered.length === 0 && (
-          <p className="py-10 text-center text-sm text-muted-foreground">
-            {t("common.noMatches")}
-          </p>
+          <EmptyState
+            title="No traders found"
+            description="No importer or exporter profiles match — connect a forwarder feed to import them."
+            actionLabel="Connect Forwarder API"
+            onAction={() =>
+              demoSuccess(
+                "Forwarder API",
+                "This would open the integration setup.",
+              )
+            }
+          />
         )}
       </div>
     </DashboardLayout>

@@ -1,11 +1,22 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useRouterState } from "@tanstack/react-router";
 import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
 import { DashboardSidebar } from "./DashboardSidebar";
 import { DashboardTopbar } from "./DashboardTopbar";
-import { CommandPalette } from "./CommandPalette";
+import { CommandMenu } from "./CommandMenu";
 
 const COLLAPSE_KEY = "altun-dashboard-sidebar-collapsed";
+
+interface Props {
+  children: ReactNode;
+  /**
+   * Strict single-screen lock. When true, <main> never scrolls — the page
+   * is a flex column that fills the viewport exactly and owns its own
+   * internal scroll regions. Used by the Overview and Automation cockpits.
+   */
+  lockViewport?: boolean;
+}
 
 /**
  * Top-level dashboard chrome. Wrap each /dashboard page component with this.
@@ -14,8 +25,10 @@ const COLLAPSE_KEY = "altun-dashboard-sidebar-collapsed";
  *   icon-only rail (preference persisted in localStorage).
  * - Background: dual-mode `.dashboard-bg` gradient.
  * - Hosts the global ⌘K command palette.
+ * - The window itself never scrolls; the outer frame is locked to the
+ *   viewport (`h-screen overflow-hidden`).
  */
-export function DashboardLayout({ children }: { children: ReactNode }) {
+export function DashboardLayout({ children, lockViewport = false }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
@@ -45,7 +58,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="relative h-screen overflow-hidden text-foreground">
+    <div className="relative h-screen w-full overflow-hidden bg-slate-50 dark:bg-slate-950 text-foreground">
       <div aria-hidden className="dashboard-bg fixed inset-0 -z-10" />
 
       <DashboardSidebar
@@ -59,25 +72,35 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           Locked to the viewport height; only <main> scrolls internally so
           the window/chrome never moves (single-screen cockpit). */}
       <div
-        className={`flex flex-col h-screen transition-[padding] duration-300 ${
+        className={`flex flex-col h-screen min-w-0 transition-[padding] duration-300 ${
           collapsed ? "lg:pl-[4.75rem]" : "lg:pl-[16.5rem]"
         }`}
       >
         <DashboardTopbar onOpenSidebar={() => setSidebarOpen(true)} />
-        <main className="flex-1 min-h-0 overflow-y-auto scroll-thin px-4 sm:px-6 lg:px-8 py-8 sm:py-10 lg:py-12">
+        <main
+          className={cn(
+            "flex-1 min-h-0 min-w-0 overflow-x-hidden px-4 sm:px-6 lg:px-8",
+            lockViewport
+              ? "overflow-y-hidden py-5 sm:py-6"
+              : "overflow-y-auto scroll-thin py-8 sm:py-10 lg:py-12",
+          )}
+        >
           <motion.div
             key={pathname}
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-            className="mx-auto w-full max-w-[1440px]"
+            className={cn(
+              "mx-auto w-full max-w-[1440px] min-w-0",
+              lockViewport && "h-full min-h-0 flex flex-col overflow-hidden",
+            )}
           >
             {children}
           </motion.div>
         </main>
       </div>
 
-      <CommandPalette />
+      <CommandMenu />
     </div>
   );
 }
