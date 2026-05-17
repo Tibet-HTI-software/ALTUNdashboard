@@ -15,7 +15,8 @@ export const Route = createFileRoute("/dashboard/automation/delay-risk")({
 });
 
 function DelayRiskPage() {
-  const { data, loading, error, reload } = useAsyncData(getOceanShipments, []);
+  // 30 s silent background poll — keeps D&D countdowns fresh without reload.
+  const { data, loading, error, reload } = useAsyncData(getOceanShipments, [], 30_000);
   const t = useT();
 
   const header = (

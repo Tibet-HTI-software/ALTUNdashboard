@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Inbox, Mail, Send, Sparkles } from "lucide-react";
+import { ArrowRight, Inbox, Loader2, Mail, Send, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { CustomerEmail, EmailIntent } from "@/lib/dashboard/api";
 import { demoSuccess } from "@/lib/dashboard/demo";
+import { useUiSounds } from "@/hooks/useUiSounds";
 
 const INTENT_STYLE: Record<EmailIntent, string> = {
   "Status Update":
@@ -34,7 +35,19 @@ export function CommunicationHub({ emails }: { emails: CustomerEmail[] }) {
   const [selectedId, setSelectedId] = useState<string | null>(
     emails[0]?.id ?? null,
   );
+  const [sending, setSending] = useState(false);
+  const { playSuccess } = useUiSounds();
   const selected = emails.find((e) => e.id === selectedId) ?? null;
+
+  async function handleSendReply() {
+    if (sending || !selected) return;
+    setSending(true);
+    // Simulate 1.5 s network round-trip.
+    await new Promise((r) => setTimeout(r, 1500));
+    setSending(false);
+    playSuccess();
+    demoSuccess("Reply sent", `AI draft sent to ${selected.fromName}.`);
+  }
 
   return (
     <div className="grid gap-4 lg:grid-cols-[20rem_1fr]">
@@ -131,15 +144,16 @@ export function CommunicationHub({ emails }: { emails: CustomerEmail[] }) {
                 <div className="mt-4 flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={() =>
-                      demoSuccess(
-                        "Reply sent",
-                        `AI draft sent to ${selected.fromName}.`,
-                      )
-                    }
-                    className="inline-flex items-center gap-1.5 h-9 rounded-lg bg-brand text-white px-3.5 text-sm font-semibold hover:bg-brand-strong transition-colors shadow-[0_4px_16px_-6px_var(--brand)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    onClick={handleSendReply}
+                    disabled={sending}
+                    className="inline-flex items-center gap-1.5 h-9 rounded-lg bg-brand text-white px-3.5 text-sm font-semibold hover:bg-brand-strong transition-colors shadow-[0_4px_16px_-6px_var(--brand)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-70 disabled:cursor-not-allowed"
                   >
-                    <Send className="h-3.5 w-3.5" /> Send reply
+                    {sending ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Send className="h-3.5 w-3.5" />
+                    )}
+                    {sending ? "Sending…" : "Send reply"}
                   </button>
                   <button
                     type="button"

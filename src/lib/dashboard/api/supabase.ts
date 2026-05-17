@@ -63,8 +63,13 @@ export function isSchemaMissingError(err: unknown): boolean {
     code === "PGRST205" ||
     code === "PGRST301" ||
     code === "42P01" ||
+    // Permission denied — anon role missing GRANT or RLS blocks read.
+    // Treat the same as schema-missing so the UI falls back to mock data
+    // rather than surfacing an error state.
+    code === "42501" ||
     msg.includes("schema cache") ||
-    msg.includes("does not exist")
+    msg.includes("does not exist") ||
+    msg.includes("permission denied")
   );
 }
 

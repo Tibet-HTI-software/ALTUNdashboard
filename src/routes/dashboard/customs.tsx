@@ -47,7 +47,7 @@ function CustomsPage() {
   const open = (customsFiles ?? []).find((c) => c.id === openId);
 
   return (
-    <DashboardLayout>
+    <DashboardLayout lockViewport>
       <DashboardPageHeader
         title="Customs & Documents"
         description="Pending customs files, document checklists, and clearance progress."
@@ -71,10 +71,10 @@ function CustomsPage() {
       {loading && <LoadingState label="Loading customs files…" />}
       {error && <ErrorState error={error} onRetry={reload} />}
       {!loading && !error && customsFiles && (
-        <div className="grid gap-5 lg:grid-cols-5">
+        <div className="flex-1 min-h-0 grid gap-5 lg:grid-cols-5">
           {/* File list */}
-          <section className="lg:col-span-2 card-premium rounded-2xl overflow-hidden">
-            <header className="px-5 py-4 border-b border-border">
+          <section className="lg:col-span-2 card-premium rounded-2xl overflow-hidden flex flex-col min-h-0">
+            <header className="px-5 py-4 border-b border-border shrink-0">
               <h2 className="font-display font-bold text-navy-deep text-base">
                 Pending files
               </h2>
@@ -84,7 +84,7 @@ function CustomsPage() {
                 released
               </p>
             </header>
-            <ul className="divide-y divide-border max-h-[600px] overflow-y-auto">
+            <ul className="divide-y divide-border flex-1 min-h-0 overflow-y-auto scroll-thin">
               {customsFiles.map((f) => (
                 <li key={f.id}>
                   <button
@@ -125,7 +125,7 @@ function CustomsPage() {
           </section>
 
           {/* Detail panel */}
-          <section className="lg:col-span-3">
+          <section className="lg:col-span-3 overflow-y-auto scroll-thin min-h-0">
             {open ? (
               <div className="card-premium rounded-2xl p-5">
                 <header className="flex items-start justify-between gap-3 flex-wrap mb-4">

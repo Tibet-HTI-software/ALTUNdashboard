@@ -11,31 +11,27 @@ import { useDemurrageThresholds } from "@/lib/dashboard/demurrage";
 
 const RISK_STYLE: Record<
   FreeTimeRisk,
-  { ring: string; chip: string; dot: string; label: string }
+  { ring: string; chip: string; dot: string }
 > = {
   demurrage: {
     ring: "border-rose-500/40 bg-rose-500/[0.04]",
     chip: "bg-rose-500/15 text-rose-600 dark:text-rose-300 border-rose-500/30",
     dot: "bg-rose-500",
-    label: "In demurrage",
   },
   critical: {
     ring: "border-rose-500/30 bg-rose-500/[0.03]",
     chip: "bg-rose-500/12 text-rose-600 dark:text-rose-300 border-rose-500/25",
     dot: "bg-rose-500",
-    label: "Critical · <24h",
   },
   warning: {
     ring: "border-amber-500/30 bg-amber-500/[0.03]",
     chip: "bg-amber-500/12 text-amber-700 dark:text-amber-300 border-amber-500/25",
     dot: "bg-amber-500",
-    label: "Warning · <72h",
   },
   healthy: {
     ring: "border-border",
     chip: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300 border-emerald-500/25",
     dot: "bg-emerald-500",
-    label: "Healthy",
   },
 };
 

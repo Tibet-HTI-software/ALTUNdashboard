@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import {
   Anchor,
   X,
@@ -6,6 +6,7 @@ import {
   Moon,
   Sparkles,
   Globe,
+  LogOut,
   Settings,
   PanelLeftClose,
   PanelLeftOpen,
@@ -15,6 +16,7 @@ import { dashboardNav } from "@/lib/dashboard/nav";
 import { useTheme } from "@/lib/dashboard/theme";
 import { LANGUAGES, useLanguage } from "@/lib/dashboard/language";
 import { useT } from "@/lib/dashboard/i18n";
+import { useAuth } from "@/lib/auth/AuthContext";
 
 interface Props {
   open: boolean;
@@ -37,6 +39,13 @@ export function DashboardSidebar({
   const { theme, toggle } = useTheme();
   const { language, setLanguage } = useLanguage();
   const t = useT();
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
+
+  async function handleSignOut() {
+    await signOut();
+    navigate({ to: "/login" });
+  }
 
   return (
     <>
@@ -326,6 +335,23 @@ export function DashboardSidebar({
               {t("pref.settings")}
             </span>
           </Link>
+
+          <button
+            type="button"
+            onClick={handleSignOut}
+            title={collapsed ? t("auth.signOut") : undefined}
+            className={cn(
+              "group w-full flex items-center rounded-lg text-[0.85rem] font-medium text-muted-foreground hover:text-red-500 hover:bg-red-500/[0.06] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand",
+              collapsed
+                ? "lg:justify-center lg:px-0 h-10 gap-3 px-3 py-2.5"
+                : "gap-3 px-3 py-2.5",
+            )}
+          >
+            <LogOut className="h-[1.05rem] w-[1.05rem] shrink-0 text-muted-foreground/70 group-hover:text-red-500 transition-colors" />
+            <span className={cn(collapsed && "lg:hidden")}>
+              {t("auth.signOut")}
+            </span>
+          </button>
         </div>
       </aside>
     </>

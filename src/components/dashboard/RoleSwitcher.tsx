@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROLES, getRoleMeta, useRole } from "@/lib/dashboard/role";
 import { useT } from "@/lib/dashboard/i18n";
 import { useUiSounds } from "@/hooks/useUiSounds";
+import { useAuth } from "@/lib/auth/AuthContext";
 
 /**
  * Role-preview switcher for the topbar.
@@ -18,8 +20,16 @@ export function RoleSwitcher() {
   const { role, setRole } = useRole();
   const t = useT();
   const { playRoleSwitch } = useUiSounds();
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+
+  async function handleSignOut() {
+    setOpen(false);
+    await signOut();
+    navigate({ to: "/login" });
+  }
 
   const active = getRoleMeta(role);
 
@@ -138,6 +148,17 @@ export function RoleSwitcher() {
             <p className="px-3 py-2 text-[0.65rem] text-muted-foreground border-t border-border bg-foreground/[0.02]">
               Preview only — switches dashboard emphasis, not real access.
             </p>
+            <div className="p-1.5 border-t border-border">
+              <button
+                type="button"
+                role="menuitem"
+                onClick={handleSignOut}
+                className="w-full flex items-center gap-3 rounded-lg px-2.5 py-2 text-left text-sm font-medium text-muted-foreground hover:text-red-500 hover:bg-red-500/[0.06] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+              >
+                <LogOut className="h-4 w-4 shrink-0" />
+                {t("auth.signOut")}
+              </button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

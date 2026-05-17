@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, Navigate } from "@tanstack/react-router";
 import { Anchor } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { ErrorBoundary } from "@/components/dashboard/ErrorBoundary";
 
 /**
  * Dashboard layout + auth guard.
@@ -36,5 +37,9 @@ function DashboardGuard() {
     return <Navigate to="/login" />;
   }
 
-  return <Outlet />;
+  return (
+    <ErrorBoundary>
+      <Outlet />
+    </ErrorBoundary>
+  );
 }

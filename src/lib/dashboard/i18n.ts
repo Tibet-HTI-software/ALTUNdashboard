@@ -53,6 +53,7 @@ export const dictionary = {
   "pref.darkMode": { en: "Dark mode", nl: "Donkere modus", tr: "Koyu mod" },
   "pref.lightMode": { en: "Light mode", nl: "Lichte modus", tr: "Açık mod" },
   "pref.settings": { en: "Settings", nl: "Instellingen", tr: "Ayarlar" },
+  "auth.signOut": { en: "Sign out", nl: "Uitloggen", tr: "Çıkış yap" },
 
   /* ── Role switcher ──────────────────────────────────────── */
   "role.preview": {
