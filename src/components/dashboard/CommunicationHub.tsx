@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import type { CustomerEmail, EmailIntent } from "@/lib/dashboard/api";
 import { demoSuccess } from "@/lib/dashboard/demo";
 import { useUiSounds } from "@/hooks/useUiSounds";
+import { useT } from "@/lib/dashboard/i18n";
 
 const INTENT_STYLE: Record<EmailIntent, string> = {
   "Status Update":
@@ -37,6 +38,7 @@ export function CommunicationHub({ emails }: { emails: CustomerEmail[] }) {
   );
   const [sending, setSending] = useState(false);
   const { playSuccess } = useUiSounds();
+  const t = useT();
   const selected = emails.find((e) => e.id === selectedId) ?? null;
 
   async function handleSendReply() {
@@ -46,7 +48,10 @@ export function CommunicationHub({ emails }: { emails: CustomerEmail[] }) {
     await new Promise((r) => setTimeout(r, 1500));
     setSending(false);
     playSuccess();
-    demoSuccess("Reply sent", `AI draft sent to ${selected.fromName}.`);
+    demoSuccess(
+      t("comm.sentTitle"),
+      t("comm.sentDesc", { name: selected.fromName }),
+    );
   }
 
   return (
@@ -55,7 +60,9 @@ export function CommunicationHub({ emails }: { emails: CustomerEmail[] }) {
       <div className="card-premium rounded-xl overflow-hidden">
         <header className="flex items-center gap-2 px-4 py-3 border-b border-border">
           <Inbox className="h-4 w-4 text-brand" />
-          <h3 className="text-sm font-semibold text-foreground">Inbox</h3>
+          <h3 className="text-sm font-semibold text-foreground">
+            {t("comm.inbox")}
+          </h3>
           <span className="ml-auto rounded-full bg-brand/12 px-2 py-0.5 text-[0.65rem] font-bold text-brand">
             {emails.length}
           </span>
@@ -116,7 +123,7 @@ export function CommunicationHub({ emails }: { emails: CustomerEmail[] }) {
               <article className="card-premium rounded-xl p-4">
                 <p className="flex items-center gap-1.5 text-[0.62rem] font-semibold uppercase tracking-wider text-muted-foreground">
                   <Mail className="h-3.5 w-3.5" />
-                  Customer email
+                  {t("comm.customerEmail")}
                 </p>
                 <h4 className="mt-2 text-sm font-semibold text-foreground">
                   {selected.subject}
@@ -128,7 +135,7 @@ export function CommunicationHub({ emails }: { emails: CustomerEmail[] }) {
                   {selected.body}
                 </p>
                 <p className="mt-3 inline-flex items-center gap-1 rounded-md bg-foreground/[0.04] px-2 py-1 text-[0.65rem] font-medium text-muted-foreground">
-                  Linked shipment: {selected.shipmentId}
+                  {t("comm.linkedShipment", { id: selected.shipmentId })}
                 </p>
               </article>
 
@@ -136,7 +143,7 @@ export function CommunicationHub({ emails }: { emails: CustomerEmail[] }) {
               <article className="rounded-xl p-4 border border-brand/25 bg-brand/[0.03]">
                 <p className="flex items-center gap-1.5 text-[0.62rem] font-semibold uppercase tracking-wider text-brand">
                   <Sparkles className="h-3.5 w-3.5" />
-                  AI-drafted reply
+                  {t("comm.aiDraft")}
                 </p>
                 <p className="mt-2 text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">
                   {selected.aiDraft}
@@ -153,29 +160,29 @@ export function CommunicationHub({ emails }: { emails: CustomerEmail[] }) {
                     ) : (
                       <Send className="h-3.5 w-3.5" />
                     )}
-                    {sending ? "Sending…" : "Send reply"}
+                    {sending ? t("comm.sending") : t("comm.sendReply")}
                   </button>
                   <button
                     type="button"
                     onClick={() =>
                       demoSuccess(
-                        "Draft saved",
-                        "AI reply moved to drafts for review.",
+                        t("comm.draftSaved"),
+                        t("comm.draftSavedDesc"),
                       )
                     }
                     className="inline-flex items-center gap-1.5 h-9 rounded-lg border border-border bg-foreground/[0.03] px-3.5 text-sm font-medium text-foreground hover:border-brand/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                   >
-                    Edit draft <ArrowRight className="h-3.5 w-3.5" />
+                    {t("comm.editDraft")} <ArrowRight className="h-3.5 w-3.5" />
                   </button>
                 </div>
                 <p className="mt-2 text-[0.65rem] text-muted-foreground">
-                  Prototype — pre-filled with live tracking & ETA data.
+                  {t("comm.prototype")}
                 </p>
               </article>
             </motion.div>
           ) : (
             <div className="card-premium rounded-xl p-8 text-center text-sm text-muted-foreground">
-              Select an email to see the AI-drafted reply.
+              {t("comm.selectEmail")}
             </div>
           )}
         </AnimatePresence>

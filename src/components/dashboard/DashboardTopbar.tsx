@@ -20,6 +20,8 @@ import { useT } from "@/lib/dashboard/i18n";
 import { useGlobalSearch } from "@/lib/dashboard/search";
 import { RoleSwitcher } from "./RoleSwitcher";
 
+const OPERATIONS_COUNT = 12;
+
 interface Props {
   onOpenSidebar: () => void;
 }
@@ -162,7 +164,7 @@ export function DashboardTopbar({ onOpenSidebar }: Props) {
           </span>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-foreground/[0.03] px-3 h-7 text-[0.7rem] font-medium text-muted-foreground">
             <Activity className="h-3 w-3 text-brand" />
-            12 operations active
+            {t("top.operationsActive", { count: OPERATIONS_COUNT })}
           </span>
         </div>
 
@@ -236,7 +238,7 @@ export function DashboardTopbar({ onOpenSidebar }: Props) {
                   </ul>
                 )}
                 <p className="px-3 py-2 text-[0.65rem] text-muted-foreground border-t border-border bg-foreground/[0.02]">
-                  Prototype search — mock data only, no backend connected.
+                  {t("top.searchProto")}
                 </p>
               </div>
             )}

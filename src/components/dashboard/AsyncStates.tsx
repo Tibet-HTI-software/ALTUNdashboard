@@ -1,5 +1,6 @@
 import { AlertTriangle, Inbox } from "lucide-react";
 import type { ReactNode } from "react";
+import { useT } from "@/lib/dashboard/i18n";
 
 /**
  * Shared loading / error / empty states for dashboard routes that fetch
@@ -12,9 +13,11 @@ function SkeletonBlock({ className = "" }: { className?: string }) {
 }
 
 export function LoadingState({ label }: { label?: string }) {
+  const t = useT();
+  const resolvedLabel = label ?? t("state.loading");
   return (
-    <div role="status" aria-live="polite" aria-label={label ?? "Loading"}>
-      <span className="sr-only">{label ?? "Loading…"}</span>
+    <div role="status" aria-live="polite" aria-label={resolvedLabel}>
+      <span className="sr-only">{resolvedLabel}</span>
 
       {/* KPI row */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -55,6 +58,7 @@ export function ErrorState({
   error: Error;
   onRetry?: () => void;
 }) {
+  const t = useT();
   return (
     <div
       role="alert"
@@ -62,7 +66,7 @@ export function ErrorState({
     >
       <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
       <div className="min-w-0 flex-1">
-        <p className="font-semibold">Could not load this section.</p>
+        <p className="font-semibold">{t("state.error")}</p>
         <p className="mt-0.5 text-xs opacity-90">{error.message}</p>
         {onRetry && (
           <button
@@ -70,7 +74,7 @@ export function ErrorState({
             onClick={onRetry}
             className="mt-2 inline-flex items-center gap-1.5 h-8 rounded-lg border border-rose-300/50 bg-foreground/[0.04] px-3 text-xs font-medium hover:bg-foreground/[0.08] transition-colors"
           >
-            Retry
+            {t("state.retry")}
           </button>
         )}
       </div>
@@ -79,7 +83,7 @@ export function ErrorState({
 }
 
 export function EmptyState({
-  title = "Nothing to show yet",
+  title,
   description,
   action,
 }: {
@@ -87,12 +91,15 @@ export function EmptyState({
   description?: string;
   action?: ReactNode;
 }) {
+  const t = useT();
   return (
     <div className="card-premium rounded-2xl flex flex-col items-center justify-center gap-2 px-6 py-14 text-center">
       <div className="h-11 w-11 rounded-xl bg-brand/12 border border-brand/20 flex items-center justify-center">
         <Inbox className="h-5 w-5 text-brand" />
       </div>
-      <p className="mt-1 text-sm font-semibold text-foreground">{title}</p>
+      <p className="mt-1 text-sm font-semibold text-foreground">
+        {title ?? t("state.empty")}
+      </p>
       {description && (
         <p className="text-xs text-muted-foreground max-w-sm">{description}</p>
       )}

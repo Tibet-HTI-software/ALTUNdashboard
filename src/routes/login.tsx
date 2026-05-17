@@ -3,6 +3,7 @@ import { createFileRoute, useNavigate, Navigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { Anchor, ArrowRight, Lock, Mail, Sparkles, Zap } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { useT } from "@/lib/dashboard/i18n";
 
 export const Route = createFileRoute("/login")({
   head: () => ({ meta: [{ title: "Sign in — Altun Logistics" }] }),
@@ -13,6 +14,7 @@ function LoginPage() {
   const navigate = useNavigate();
   const { authed, loading, signInWithPassword, signInWithGoogle, bypass } =
     useAuth();
+  const t = useT();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -84,17 +86,14 @@ function LoginPage() {
 
           <div className="max-w-md">
             <h1 className="font-display text-4xl font-bold leading-[1.15] tracking-tight text-white">
-              Ocean freight,
-              <br />
-              under full control.
+              {t("login.tagline")}
             </h1>
             <p className="mt-4 text-sm leading-relaxed text-slate-400">
-              Live demurrage clocks, AI document checks and a 3D fleet command
-              globe — one calm, premium operations cockpit.
+              {t("login.taglineSub")}
             </p>
             <div className="mt-8 flex items-center gap-2 text-xs text-slate-500">
               <Sparkles className="h-3.5 w-3.5 text-brand" />
-              Trusted by importers &amp; exporters across Europe
+              {t("login.trusted")}
             </div>
           </div>
         </div>
@@ -109,15 +108,15 @@ function LoginPage() {
           className="w-full max-w-sm"
         >
           <h2 className="font-display text-2xl font-bold tracking-tight text-white">
-            Sign in
+            {t("login.title")}
           </h2>
-          <p className="mt-1 text-sm text-slate-400">
-            Welcome back — access the operations dashboard.
-          </p>
+          <p className="mt-1 text-sm text-slate-400">{t("login.welcome")}</p>
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-3">
             <label className="block">
-              <span className="text-xs font-medium text-slate-400">Email</span>
+              <span className="text-xs font-medium text-slate-400">
+                {t("login.email")}
+              </span>
               <div className="mt-1 relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                 <input
@@ -125,7 +124,7 @@ function LoginPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@company.com"
+                  placeholder={t("login.emailPlaceholder")}
                   autoComplete="email"
                   className="w-full h-11 rounded-xl border border-white/10 bg-white/[0.04] pl-9 pr-3 text-sm text-white placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:border-brand/40 transition-colors"
                 />
@@ -134,7 +133,7 @@ function LoginPage() {
 
             <label className="block">
               <span className="text-xs font-medium text-slate-400">
-                Password
+                {t("login.password")}
               </span>
               <div className="mt-1 relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
@@ -161,7 +160,7 @@ function LoginPage() {
               disabled={busy}
               className="w-full inline-flex items-center justify-center gap-1.5 h-11 rounded-xl bg-gradient-to-br from-brand to-brand-strong text-white text-sm font-semibold shadow-[0_8px_24px_-10px_var(--brand)] hover:-translate-y-0.5 transition-transform disabled:opacity-60 disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
             >
-              {busy ? "Signing in…" : "Sign in"}
+              {busy ? t("login.signingIn") : t("login.signIn")}
               {!busy && <ArrowRight className="h-4 w-4" />}
             </button>
           </form>
@@ -169,7 +168,7 @@ function LoginPage() {
           {/* divider */}
           <div className="my-4 flex items-center gap-3 text-[0.65rem] uppercase tracking-widest text-slate-600">
             <span className="h-px flex-1 bg-white/10" />
-            or
+            {t("login.or")}
             <span className="h-px flex-1 bg-white/10" />
           </div>
 
@@ -179,7 +178,7 @@ function LoginPage() {
             className="w-full inline-flex items-center justify-center gap-2 h-11 rounded-xl border border-white/10 bg-white/[0.04] text-sm font-medium text-white hover:bg-white/[0.08] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
           >
             <GoogleMark />
-            Sign in with Google
+            {t("login.google")}
           </button>
 
           <button
@@ -188,12 +187,11 @@ function LoginPage() {
             className="mt-2 w-full inline-flex items-center justify-center gap-1.5 h-11 rounded-xl border border-brand/30 bg-brand/[0.08] text-sm font-semibold text-brand hover:bg-brand/[0.14] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
           >
             <Zap className="h-4 w-4" />
-            Continue with demo bypass
+            {t("login.demo")}
           </button>
 
           <p className="mt-4 text-center text-[0.68rem] text-slate-500">
-            Demo bypass enters the dashboard with mock data — no backend
-            required.
+            {t("login.demoHint")}
           </p>
         </motion.div>
       </div>

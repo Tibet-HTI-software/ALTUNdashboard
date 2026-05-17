@@ -20,6 +20,7 @@ import { useTheme } from "@/lib/dashboard/theme";
 import { useRole, ROLES } from "@/lib/dashboard/role";
 import { LANGUAGES, useLanguage } from "@/lib/dashboard/language";
 import { useUiSounds } from "@/hooks/useUiSounds";
+import { useT } from "@/lib/dashboard/i18n";
 
 /**
  * Pro command palette — global ⌘K / Ctrl+K navigation.
@@ -36,6 +37,7 @@ export function CommandMenu() {
   const { setRole } = useRole();
   const { setLanguage } = useLanguage();
   const { playSuccess } = useUiSounds();
+  const t = useT();
 
   // Global ⌘K / Ctrl+K toggle.
   useEffect(() => {
@@ -58,6 +60,8 @@ export function CommandMenu() {
     playSuccess();
     setOpen(false);
   }
+
+  const themeMode = theme === "dark" ? "light" : "dark";
 
   return (
     <AnimatePresence>
@@ -85,7 +89,7 @@ export function CommandMenu() {
                 <Search className="h-4 w-4 text-muted-foreground shrink-0" />
                 <Command.Input
                   autoFocus
-                  placeholder="Search shipments or run an action…"
+                  placeholder={t("cmd.placeholder")}
                   className="h-12 flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
                 />
                 <kbd className="rounded border border-border bg-foreground/[0.04] px-1.5 py-0.5 text-[0.6rem] font-medium text-muted-foreground">
@@ -95,10 +99,10 @@ export function CommandMenu() {
 
               <Command.List className="max-h-[22rem] overflow-y-auto scroll-thin p-2">
                 <Command.Empty className="py-8 text-center text-sm text-muted-foreground">
-                  No results found.
+                  {t("cmd.noResults")}
                 </Command.Empty>
 
-                <Command.Group heading="Shipments">
+                <Command.Group heading={t("cmd.group.shipments")}>
                   {containers.map((s) => (
                     <Item
                       key={s.id}
@@ -112,10 +116,10 @@ export function CommandMenu() {
                   ))}
                 </Command.Group>
 
-                <Command.Group heading="Quick actions">
+                <Command.Group heading={t("cmd.group.actions")}>
                   <Item
                     icon={<Timer className="h-4 w-4" />}
-                    label="Run Delay Risk automation"
+                    label={t("cmd.action.delayRisk")}
                     onSelect={() =>
                       run(() =>
                         navigate({ to: "/dashboard/automation/delay-risk" }),
@@ -124,7 +128,7 @@ export function CommandMenu() {
                   />
                   <Item
                     icon={<FileSearch className="h-4 w-4" />}
-                    label="Run Document Completeness scan"
+                    label={t("cmd.action.docScan")}
                     onSelect={() =>
                       run(() =>
                         navigate({
@@ -135,14 +139,14 @@ export function CommandMenu() {
                   />
                   <Item
                     icon={<LayoutDashboard className="h-4 w-4" />}
-                    label="Go to Automation Center"
+                    label={t("cmd.action.automationCenter")}
                     onSelect={() =>
                       run(() => navigate({ to: "/dashboard/automation" }))
                     }
                   />
                   <Item
                     icon={<Globe2 className="h-4 w-4" />}
-                    label="Go to Fleet Tracking"
+                    label={t("cmd.action.fleetTracking")}
                     onSelect={() =>
                       run(() => navigate({ to: "/dashboard/fleet-tracking" }))
                     }
@@ -151,13 +155,13 @@ export function CommandMenu() {
                     <Item
                       key={r.value}
                       icon={<UserCog className="h-4 w-4" />}
-                      label={`Switch to ${r.label} view`}
+                      label={t("cmd.action.switchRole", { role: r.label })}
                       onSelect={() => run(() => setRole(r.value))}
                     />
                   ))}
                 </Command.Group>
 
-                <Command.Group heading="Settings">
+                <Command.Group heading={t("cmd.group.settings")}>
                   <Item
                     icon={
                       theme === "dark" ? (
@@ -166,14 +170,14 @@ export function CommandMenu() {
                         <Moon className="h-4 w-4" />
                       )
                     }
-                    label={`Toggle ${theme === "dark" ? "light" : "dark"} mode`}
+                    label={t("cmd.action.toggleTheme", { mode: themeMode })}
                     onSelect={() => run(toggle)}
                   />
                   {LANGUAGES.map((l) => (
                     <Item
                       key={l.value}
                       icon={<Languages className="h-4 w-4" />}
-                      label={`Switch language to ${l.label}`}
+                      label={t("cmd.action.switchLang", { lang: l.label })}
                       onSelect={() => run(() => setLanguage(l.value))}
                     />
                   ))}
@@ -182,7 +186,7 @@ export function CommandMenu() {
 
               <div className="flex items-center gap-1.5 border-t border-border px-3 py-2 text-[0.62rem] text-muted-foreground">
                 <Sparkles className="h-3 w-3 text-brand" />
-                ALTUN command palette
+                {t("cmd.footer")}
               </div>
             </Command>
           </motion.div>

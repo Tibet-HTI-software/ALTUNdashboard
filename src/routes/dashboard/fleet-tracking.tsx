@@ -12,6 +12,7 @@ import {
 import { getOceanShipments, useAsyncData } from "@/lib/dashboard/api";
 import { portCoord } from "@/data/dashboard/ports";
 import { useUiSounds } from "@/hooks/useUiSounds";
+import { useT } from "@/lib/dashboard/i18n";
 
 export const Route = createFileRoute("/dashboard/fleet-tracking")({
   head: () => ({
@@ -24,6 +25,7 @@ function FleetTrackingPage() {
   const { data, loading, error, reload } = useAsyncData(getOceanShipments, []);
   const { playSuccess, playHover } = useUiSounds();
   const [focusedId, setFocusedId] = useState<string | null>(null);
+  const t = useT();
 
   const vessels = useMemo(
     () => (data ?? []).filter((s) => s.phase !== "Delivered"),
@@ -74,15 +76,13 @@ function FleetTrackingPage() {
         className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-brand transition-colors mb-2"
       >
         <ChevronLeft className="h-3.5 w-3.5" />
-        Overview
+        {t("nav.overview")}
       </Link>
       <h1 className="flex items-center gap-2 font-display text-2xl font-bold text-foreground tracking-tight">
         <Navigation className="h-5 w-5 text-brand" />
-        Fleet Tracking
+        {t("fleet.title")}
       </h1>
-      <p className="mt-0.5 text-sm text-muted-foreground">
-        Live vessel positions and trade routes — click a vessel to fly there.
-      </p>
+      <p className="mt-0.5 text-sm text-muted-foreground">{t("fleet.sub")}</p>
     </div>
   );
 
@@ -90,7 +90,7 @@ function FleetTrackingPage() {
     return (
       <DashboardLayout lockViewport>
         {header}
-        <LoadingState label="Locating the fleet…" />
+        <LoadingState label={t("fleet.loading")} />
       </DashboardLayout>
     );
   }
@@ -99,7 +99,7 @@ function FleetTrackingPage() {
       <DashboardLayout lockViewport>
         {header}
         <ErrorState
-          error={error ?? new Error("Fleet data unavailable.")}
+          error={error ?? new Error(t("fleet.error"))}
           onRetry={reload}
         />
       </DashboardLayout>
@@ -116,7 +116,7 @@ function FleetTrackingPage() {
           <header className="flex items-center gap-2 px-4 h-12 border-b border-border shrink-0">
             <Ship className="h-4 w-4 text-brand" />
             <h2 className="text-sm font-semibold text-foreground">
-              Active Vessels
+              {t("fleet.vessels")}
             </h2>
             <span className="ml-auto rounded-full bg-brand/12 px-2 py-0.5 text-[0.65rem] font-bold text-brand">
               {vessels.length}
@@ -156,7 +156,7 @@ function FleetTrackingPage() {
                       {s.pol} → {s.pod}
                     </p>
                     <p className="text-[0.68rem] text-muted-foreground">
-                      ETA {s.eta} · {s.phase}
+                      {t("fleet.vesselEta", { eta: s.eta, phase: s.phase })}
                     </p>
                   </button>
                 </li>

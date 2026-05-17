@@ -146,7 +146,7 @@ export function RoleSwitcher() {
               })}
             </ul>
             <p className="px-3 py-2 text-[0.65rem] text-muted-foreground border-t border-border bg-foreground/[0.02]">
-              Preview only — switches dashboard emphasis, not real access.
+              {t("role.previewNote")}
             </p>
             <div className="p-1.5 border-t border-border">
               <button
