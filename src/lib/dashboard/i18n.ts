@@ -55,6 +55,43 @@ export const dictionary = {
     nl: "Vloottracking",
     tr: "Filo Takibi",
   },
+  "nav.inbox": {
+    en: "Inbox & Comms",
+    nl: "Inbox & Comms",
+    tr: "Gelen Kutusu",
+  },
+  "nav.finance": {
+    en: "Finance & Invoicing",
+    nl: "Financiën & Facturatie",
+    tr: "Finans & Faturalama",
+  },
+  "nav.myTasks": {
+    en: "My Tasks",
+    nl: "Mijn Taken",
+    tr: "Görevlerim",
+  },
+
+  /* ── Nav group labels ───────────────────────────────────── */
+  "nav.group.workspace": {
+    en: "My Workspace",
+    nl: "Mijn Werkruimte",
+    tr: "Çalışma Alanım",
+  },
+  "nav.group.operations": {
+    en: "Operations",
+    nl: "Operaties",
+    tr: "Operasyonlar",
+  },
+  "nav.group.commercial": {
+    en: "Commercial",
+    nl: "Commercieel",
+    tr: "Ticari",
+  },
+  "nav.group.management": {
+    en: "Management",
+    nl: "Management",
+    tr: "Yönetim",
+  },
 
   /* ── Preferences ────────────────────────────────────────── */
   "pref.preferences": { en: "Preferences", nl: "Voorkeuren", tr: "Tercihler" },
@@ -203,35 +240,45 @@ export const dictionary = {
     nl: "Prestaties, volumes en wekelijkse boekingstrend.",
     tr: "Zamanında performans, hacimler ve haftalık rezervasyon eğilimi.",
   },
-  "planner.title": {
-    en: "Demurrage Risk Board",
-    nl: "Demurrage-risicobord",
-    tr: "Demuraj Risk Panosu",
+  "forwarder.title": {
+    en: "Dossier Pipeline",
+    nl: "Dossier Pipeline",
+    tr: "Dosya Akışı",
   },
-  "planner.subtitle": {
-    en: "Containers approaching their terminal free-time limit.",
-    nl: "Containers die hun vrije terminaltijd naderen.",
-    tr: "Terminal serbest süre sınırına yaklaşan konteynerler.",
+  "forwarder.subtitle": {
+    en: "Your active dossiers across all forwarding stages — order entry to invoicing.",
+    nl: "Uw actieve dossiers van orderinvoer tot facturering.",
+    tr: "Sipariş girişinden faturalamaya tüm aşamalardaki dosyalarınız.",
   },
-  "customs.title": {
-    en: "Customs Action Center",
-    nl: "Douane-actiecentrum",
-    tr: "Gümrük İşlem Merkezi",
+  "ops_manager.title": {
+    en: "Operations Overview",
+    nl: "Operationeel overzicht",
+    tr: "Operasyonel Genel Bakış",
   },
-  "customs.subtitle": {
-    en: "Blocked declarations waiting on documentation.",
-    nl: "Geblokkeerde aangiftes die op documenten wachten.",
-    tr: "Belge bekleyen bloke beyannameler.",
+  "ops_manager.subtitle": {
+    en: "Team exceptions, SLA compliance, and dossier pipeline health.",
+    nl: "Team-uitzonderingen, SLA-naleving en dossier-pipeline.",
+    tr: "Ekip istisnaları, SLA uyumu ve dosya hattı durumu.",
   },
-  "service.title": {
+  "sales_manager.title": {
+    en: "Commercial Dashboard",
+    nl: "Commercieel dashboard",
+    tr: "Ticari Gösterge Paneli",
+  },
+  "sales_manager.subtitle": {
+    en: "Active quotes, carrier rates, and key account pipeline.",
+    nl: "Actieve offertes, carrier-tarieven en key-account pipeline.",
+    tr: "Aktif teklifler, taşıyıcı ücretleri ve kilit hesap akışı.",
+  },
+  "inside_sales.title": {
     en: "Smart Communication Hub",
     nl: "Slim communicatiecentrum",
     tr: "Akıllı İletişim Merkezi",
   },
-  "service.subtitle": {
-    en: "Client emails paired with AI-drafted, data-filled replies.",
-    nl: "Klant-e-mails met AI-concepten vol live data.",
-    tr: "Yapay zekâ taslaklı yanıtlarla eşleşen müşteri e-postaları.",
+  "inside_sales.subtitle": {
+    en: "Client emails, booking confirmations, and AI-drafted status updates.",
+    nl: "Klant-e-mails, boekingsbevestigingen en AI-concepten.",
+    tr: "Müşteri e-postaları, rezervasyon onayları ve yapay zeka taslakları.",
   },
 
   /* ── Communication Hub ──────────────────────────────────── */
@@ -636,6 +683,36 @@ export const dictionary = {
     en: "Risk-alert thresholds and backend connection.",
     nl: "Risicodrempels en backend-verbinding.",
     tr: "Risk uyarı eşikleri ve arka uç bağlantısı.",
+  },
+  "page.inbox.title": {
+    en: "Inbox & Communications",
+    nl: "Inbox & Communicatie",
+    tr: "Gelen Kutusu & İletişim",
+  },
+  "page.inbox.sub": {
+    en: "Centralised message centre — shipment emails, AI replies and send history.",
+    nl: "Centraal berichtencentrum — zendingemails, AI-antwoorden en verzendgeschiedenis.",
+    tr: "Merkezi mesaj merkezi — sevkiyat e-postaları, yapay zekâ yanıtları ve gönderim geçmişi.",
+  },
+  "page.finance.title": {
+    en: "Finance & Invoicing",
+    nl: "Financiën & Facturatie",
+    tr: "Finans & Faturalama",
+  },
+  "page.finance.sub": {
+    en: "P&L per shipment, carrier invoices and client billing in one place.",
+    nl: "Winst & verlies per zending, vervoerdersfacturen en klantfacturatie op één plek.",
+    tr: "Sevkiyat başına kâr/zarar, taşıyıcı faturaları ve müşteri faturalandırması tek yerde.",
+  },
+  "page.myTasks.title": {
+    en: "My Tasks",
+    nl: "Mijn Taken",
+    tr: "Görevlerim",
+  },
+  "page.myTasks.sub": {
+    en: "Personal action board — daily operational tasks, follow-ups and reminders.",
+    nl: "Persoonlijk actiebord — dagelijkse operationele taken, opvolgingen en herinneringen.",
+    tr: "Kişisel eylem panosu — günlük operasyonel görevler, takip işlemleri ve hatırlatıcılar.",
   },
 
   "col.container": { en: "Container", nl: "Container", tr: "Konteyner" },

@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   Container,
   CheckCircle2,
@@ -9,7 +10,12 @@ import {
   ArrowUpFromLine,
   ArrowRight,
   Globe2,
+  BarChart3,
+  Download,
+  FileSpreadsheet,
+  Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { KPIStatCard } from "@/components/dashboard/KPIStatCard";
 import { ChartCard, ProgressRow } from "@/components/dashboard/ChartCard";
@@ -19,6 +25,8 @@ import { DemurrageRiskBoard } from "@/components/dashboard/DemurrageRiskBoard";
 import { CustomsActionCenter } from "@/components/dashboard/CustomsActionCenter";
 import { CommunicationHub } from "@/components/dashboard/CommunicationHub";
 import { LoadingState, ErrorState } from "@/components/dashboard/AsyncStates";
+import { Co2FootprintWidget } from "@/components/dashboard/Co2FootprintWidget";
+import { ExceptionAlertCenter } from "@/components/dashboard/ExceptionAlertCenter";
 import {
   getOceanShipments,
   getCustomerEmails,
@@ -64,17 +72,20 @@ const eur = (n: number) =>
 
 /** Maps each role to its board heading + subtitle i18n keys. */
 const ROLE_COPY: Record<string, { title: I18nKey; subtitle: I18nKey }> = {
-  ceo: { title: "ceo.title", subtitle: "ceo.subtitle" },
-  planner: { title: "planner.title", subtitle: "planner.subtitle" },
-  customs: { title: "customs.title", subtitle: "customs.subtitle" },
-  service: { title: "service.title", subtitle: "service.subtitle" },
+  ceo:          { title: "ceo.title",          subtitle: "ceo.subtitle" },
+  forwarder:    { title: "forwarder.title",    subtitle: "forwarder.subtitle" },
+  ops_manager:  { title: "ops_manager.title",  subtitle: "ops_manager.subtitle" },
+  sales_manager:{ title: "sales_manager.title",subtitle: "sales_manager.subtitle" },
+  inside_sales: { title: "inside_sales.title", subtitle: "inside_sales.subtitle" },
 };
 
 function OverviewPage() {
   const { data, loading, error, reload } = useAsyncData(loadOceanOverview, []);
   const { role } = useRole();
   const t = useT();
-  const copy = ROLE_COPY[role];
+  // "client" role has no dashboard board — fall back to CEO view so a direct
+  // navigation to /dashboard while role=client never crashes on copy.title.
+  const copy = ROLE_COPY[role] ?? ROLE_COPY.ceo;
 
   if (loading) {
     return (
@@ -158,12 +169,184 @@ function OverviewPage() {
           <p className="text-sm text-muted-foreground">{t(copy.subtitle)}</p>
         </div>
 
-        {role === "ceo" && <CeoBoard ceo={ceo} shipments={shipments} />}
-        {role === "planner" && <DemurrageRiskBoard shipments={shipments} />}
-        {role === "customs" && <CustomsActionCenter shipments={shipments} />}
-        {role === "service" && <CommunicationHub emails={emails} />}
+        {/* Exception alert strip — forwarder and ops_manager */}
+        {(role === "forwarder" || role === "ops_manager") && (
+          <ExceptionAlertCenter shipments={shipments} className="mb-5" />
+        )}
+
+        {role === "ceo"          && <CeoBoard ceo={ceo} shipments={shipments} />}
+        {role === "ops_manager"  && <DemurrageRiskBoard shipments={shipments} />}
+        {role === "forwarder"    && <CustomsActionCenter shipments={shipments} />}
+        {role === "inside_sales" && <CommunicationHub emails={emails} />}
+        {role === "sales_manager"&& <CeoBoard ceo={ceo} shipments={shipments} />}
       </motion.div>
     </DashboardLayout>
+  );
+}
+
+/* ── EOM Report card ─────────────────────────────────────────────────────── */
+
+const EOM_STEPS = [
+  { label: "Aggregating shipment KPIs", pct: 0.22 },
+  { label: "Compiling invoice ledger", pct: 0.44 },
+  { label: "Calculating D&D exposure", pct: 0.66 },
+  { label: "Rendering executive summary", pct: 0.88 },
+  { label: "Packaging report bundle", pct: 1 },
+];
+
+function EomReportCard() {
+  const [state, setState] = useState<"idle" | "processing" | "done">("idle");
+  const [step, setStep] = useState(0);
+
+  function handleGenerate() {
+    setState("processing");
+    setStep(0);
+    EOM_STEPS.forEach((_, i) => {
+      setTimeout(() => {
+        setStep(i);
+        if (i === EOM_STEPS.length - 1) {
+          setTimeout(() => {
+            setState("done");
+            toast.success("EOM Report ready", {
+              description: "May 2026 bundle — 4 sections, 12 charts — sent to your inbox.",
+            });
+          }, 600);
+        }
+      }, i * 480);
+    });
+  }
+
+  function handleReset() {
+    setState("idle");
+    setStep(0);
+  }
+
+  const currentStep = EOM_STEPS[step];
+
+  return (
+    <div className="card-premium rounded-2xl p-5">
+      <div className="flex items-start justify-between gap-4 mb-4">
+        <div className="flex items-center gap-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-500/10 border border-violet-500/20">
+            <BarChart3 className="h-4 w-4 text-violet-500" />
+          </span>
+          <div>
+            <h3 className="font-display text-sm font-bold text-foreground">
+              End-of-Month Report
+            </h3>
+            <p className="text-[0.68rem] text-muted-foreground">
+              May 2026 · Full operations &amp; finance bundle
+            </p>
+          </div>
+        </div>
+        {state === "done" && (
+          <motion.button
+            type="button"
+            onClick={handleReset}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-[0.68rem] font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Reset
+          </motion.button>
+        )}
+      </div>
+
+      <AnimatePresence mode="wait">
+        {state === "idle" && (
+          <motion.div
+            key="idle"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+              {[
+                { icon: FileSpreadsheet, label: "Shipment summary", color: "text-sky-500" },
+                { icon: Wallet, label: "Invoice ledger", color: "text-emerald-500" },
+                { icon: Stamp, label: "Customs KPIs", color: "text-amber-500" },
+                { icon: BarChart3, label: "D&D analysis", color: "text-rose-500" },
+              ].map(({ icon: Icon, label, color }) => (
+                <div key={label} className="rounded-xl border border-border bg-foreground/[0.02] p-3 flex items-center gap-2">
+                  <Icon className={`h-3.5 w-3.5 shrink-0 ${color}`} />
+                  <span className="text-[0.65rem] font-medium text-muted-foreground leading-tight">{label}</span>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={handleGenerate}
+              className="w-full inline-flex items-center justify-center gap-2 h-10 rounded-xl bg-violet-500 text-white text-sm font-semibold hover:bg-violet-600 transition-colors shadow-[0_6px_18px_-8px_oklch(0.59_0.2_293)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+            >
+              <BarChart3 className="h-4 w-4" />
+              Generate EOM Report
+            </button>
+          </motion.div>
+        )}
+
+        {state === "processing" && (
+          <motion.div
+            key="processing"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="space-y-3"
+          >
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-3.5 w-3.5 text-violet-500 animate-spin shrink-0" />
+              <AnimatePresence mode="wait">
+                <motion.p
+                  key={step}
+                  initial={{ opacity: 0, x: 4 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -4 }}
+                  className="text-xs font-medium text-foreground"
+                >
+                  {currentStep.label}…
+                </motion.p>
+              </AnimatePresence>
+            </div>
+            <div className="relative h-1.5 w-full rounded-full bg-foreground/[0.06] overflow-hidden">
+              <motion.div
+                className="absolute left-0 top-0 h-full rounded-full bg-violet-500"
+                animate={{ width: `${currentStep.pct * 100}%` }}
+                transition={{ duration: 0.4, ease: "easeOut" }}
+              />
+            </div>
+            <div className="flex justify-between text-[0.62rem] text-muted-foreground tabular-nums">
+              <span>Step {step + 1} / {EOM_STEPS.length}</span>
+              <span>{Math.round(currentStep.pct * 100)}%</span>
+            </div>
+          </motion.div>
+        )}
+
+        {state === "done" && (
+          <motion.div
+            key="done"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.05] px-4 py-3"
+          >
+            <div className="flex items-center gap-2.5">
+              <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+              <div>
+                <p className="text-xs font-semibold text-foreground">Report ready</p>
+                <p className="text-[0.62rem] text-muted-foreground">May 2026 · 4 sections · sent to inbox</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => toast.success("Downloading report…", { description: "altun-eom-may-2026.pdf" })}
+              className="inline-flex items-center gap-1 h-7 rounded-lg border border-emerald-500/30 bg-emerald-500/[0.08] px-2.5 text-[0.68rem] font-semibold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/[0.15] transition-colors"
+            >
+              <Download className="h-3 w-3" />
+              Download
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 
@@ -252,6 +435,12 @@ function CeoBoard({
           </div>
         </ChartCard>
       </div>
+
+      {/* CO₂ / Carbon Footprint tracker */}
+      <Co2FootprintWidget />
+
+      {/* EOM Report generator */}
+      <EomReportCard />
 
       {/* Live Fleet Tracking teaser — whole card routes to the globe page */}
       <Link

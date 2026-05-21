@@ -25,6 +25,11 @@ export const PORT_COORDS: Record<string, PortCoord> = {
   Rotterdam: { lat: 51.95, lng: 4.14 },
   Antwerp: { lat: 51.26, lng: 4.4 },
   "New York": { lat: 40.69, lng: -74.04 },
+  // ── Turkish ports (Altun Logistics home network) ──────────────────────────
+  "Ambarlı": { lat: 40.98, lng: 28.67 },
+  "Istanbul": { lat: 41.01, lng: 28.95 },
+  "Izmir": { lat: 38.44, lng: 27.14 },
+  "Mersin": { lat: 36.79, lng: 34.63 },
 };
 
 /** Looks up a port coordinate by name, defaulting to Rotterdam. */

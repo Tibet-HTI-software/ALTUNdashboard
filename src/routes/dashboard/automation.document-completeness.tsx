@@ -3,12 +3,14 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import {
-  Check,
+  AlertTriangle,
+  CheckCircle2,
   ChevronLeft,
   CircleDot,
   FileSearch,
   Navigation,
   Ship,
+  XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
@@ -20,6 +22,11 @@ import {
   useAsyncData,
   type OceanShipment,
 } from "@/lib/dashboard/api";
+import {
+  evaluateDocumentCompleteness,
+  aggregateCompleteness,
+  type RequiredDoc,
+} from "@/lib/dashboard/documentCompleteness";
 import { useT } from "@/lib/dashboard/i18n";
 
 export const Route = createFileRoute(
@@ -32,13 +39,6 @@ export const Route = createFileRoute(
 });
 
 const BRAND = "oklch(0.52 0.18 254)";
-
-/** Deterministic AI confidence score per shipment. */
-function confidence(id: string): number {
-  let h = 0;
-  for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-  return 84 + (h % 15);
-}
 
 function DocumentCompletenessPage() {
   const { data, loading, error, reload } = useAsyncData(getOceanShipments, []);
@@ -113,7 +113,7 @@ function DocumentCompletenessPage() {
           </div>
         </Panel>
         <Panel title={t("auto.panel.exceptions")} icon={FileSearch}>
-          <ExceptionTable shipments={data} />
+          <DocumentStatusTable shipments={data} />
         </Panel>
         <Panel title={t("auto.panel.timeline")} icon={CircleDot}>
           <MilestoneTimeline shipments={data} />
@@ -126,7 +126,7 @@ function DocumentCompletenessPage() {
   );
 }
 
-/* ── Panel shell ──────────────────────────────────────────── */
+/* ── Panel shell ──────────────────────────────────────────────────────────── */
 
 function Panel({
   title,
@@ -148,73 +148,152 @@ function Panel({
   );
 }
 
-/* ── Exception table ──────────────────────────────────────── */
+/* ── Doc status chip ─────────────────────────────────────────────────────── */
 
-function ExceptionTable({ shipments }: { shipments: OceanShipment[] }) {
-  const t = useT();
-  const exceptions = shipments.filter((s) => s.customsBlock !== null);
+function DocChip({ doc }: { doc: RequiredDoc }) {
+  if (doc.status === "missing") {
+    return (
+      <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[0.58rem] font-semibold bg-rose-500/12 text-rose-600 dark:text-rose-300 border border-rose-500/25">
+        <XCircle className="h-2.5 w-2.5 shrink-0" />
+        {doc.code}
+      </span>
+    );
+  }
+  if (doc.status === "at_risk") {
+    return (
+      <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[0.58rem] font-semibold bg-amber-500/12 text-amber-700 dark:text-amber-300 border border-amber-500/25">
+        <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
+        {doc.code}
+      </span>
+    );
+  }
+  return null; // present docs don't need a chip
+}
+
+/* ── Document status table ───────────────────────────────────────────────── */
+
+function DocumentStatusTable({ shipments }: { shipments: OceanShipment[] }) {
+  /** Evaluate all active (non-delivered) shipments, sort worst-first. */
+  const rows = useMemo(() => {
+    return shipments
+      .filter((s) => s.phase !== "Delivered")
+      .map((s) => ({ s, result: evaluateDocumentCompleteness(s) }))
+      .sort((a, b) => a.result.score - b.result.score);
+  }, [shipments]);
+
+  const issues = rows.filter((r) => !r.result.complete);
 
   return (
     <div className="max-h-[200px] overflow-y-auto scroll-thin">
-      <table className="w-full text-xs border-collapse">
-        <thead className="sticky top-0 bg-card">
-          <tr className="border-b border-border text-[0.6rem] uppercase tracking-wider text-muted-foreground">
-            <th className="text-left py-1.5 pr-2">{t("col.container")}</th>
-            <th className="text-left py-1.5 pr-2">Missing document</th>
-            <th className="text-right py-1.5">{t("auto.confidence")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {exceptions.map((s) => {
-            const conf = confidence(s.id);
-            return (
+      {issues.length === 0 && (
+        <p className="py-8 text-center text-xs text-muted-foreground">
+          No document exceptions — every active shipment is complete.
+        </p>
+      )}
+
+      {issues.length > 0 && (
+        <table className="w-full text-xs border-collapse">
+          <thead className="sticky top-0 bg-card">
+            <tr className="border-b border-border text-[0.6rem] uppercase tracking-wider text-muted-foreground">
+              <th className="text-left py-1.5 pr-2">Container</th>
+              <th className="text-left py-1.5 pr-2">Missing / At-risk</th>
+              <th className="text-right py-1.5">Score</th>
+            </tr>
+          </thead>
+          <tbody>
+            {issues.map(({ s, result }) => (
               <tr
                 key={s.id}
                 className="border-b border-border/60 last:border-0"
               >
-                <td className="py-2 pr-2 font-mono font-semibold text-foreground">
-                  {s.containerNumber}
+                {/* Container */}
+                <td className="py-2 pr-2">
+                  <p className="font-mono font-semibold text-foreground">
+                    {s.containerNumber}
+                  </p>
+                  <p className="text-[0.6rem] text-muted-foreground truncate max-w-[6rem]">
+                    {s.phase}
+                  </p>
                 </td>
-                <td className="py-2 pr-2 text-amber-700 dark:text-amber-300">
-                  {s.customsBlock}
+
+                {/* Missing / at-risk chips */}
+                <td className="py-2 pr-2">
+                  <div className="flex flex-wrap gap-1">
+                    {result.missing.map((d) => (
+                      <DocChip key={d.code} doc={d} />
+                    ))}
+                    {result.atRisk.map((d) => (
+                      <DocChip key={d.code} doc={d} />
+                    ))}
+                    {result.missing.length === 0 &&
+                      result.atRisk.length === 0 && (
+                        <span className="text-[0.6rem] text-muted-foreground">
+                          —
+                        </span>
+                      )}
+                  </div>
                 </td>
+
+                {/* Score */}
                 <td className="py-2 text-right">
                   <span
                     className={cn(
                       "inline-block rounded-md px-1.5 py-0.5 font-semibold tabular-nums",
-                      conf >= 92
+                      result.score === 100
                         ? "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
-                        : "bg-amber-500/12 text-amber-700 dark:text-amber-300",
+                        : result.score >= 80
+                          ? "bg-amber-500/12 text-amber-700 dark:text-amber-300"
+                          : "bg-rose-500/12 text-rose-600 dark:text-rose-300",
                     )}
                   >
-                    {conf}%
+                    {result.score}%
                   </span>
                 </td>
               </tr>
-            );
-          })}
-        </tbody>
-      </table>
-      {exceptions.length === 0 && (
-        <p className="py-8 text-center text-xs text-muted-foreground">
-          No document exceptions — every file is complete.
-        </p>
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   );
 }
 
-/* ── Process milestone timeline ───────────────────────────── */
+/* ── Process milestone timeline ──────────────────────────────────────────── */
 
 function MilestoneTimeline({ shipments }: { shipments: OceanShipment[] }) {
-  const exceptions = shipments.filter((s) => s.customsBlock !== null).length;
+  const summary = useMemo(
+    () => aggregateCompleteness(shipments),
+    [shipments],
+  );
+
   const steps = [
-    { label: "Booking files ingested", count: shipments.length, done: true },
-    { label: "Documents OCR-scanned", count: 38, done: true },
-    { label: "Exceptions detected", count: exceptions, done: true },
-    { label: "Exporters notified", count: exceptions, active: true },
-    { label: "Declarations lodged", count: 0, done: false },
+    {
+      label: "Booking files ingested",
+      count: summary.totalShipments,
+      done: true,
+    },
+    {
+      label: "Documents evaluated",
+      count: summary.totalShipments,
+      done: true,
+    },
+    {
+      label: "Exceptions detected",
+      count: summary.atRisk + summary.incomplete,
+      done: true,
+    },
+    {
+      label: "Exporters notified",
+      count: summary.atRisk + summary.incomplete,
+      active: true,
+    },
+    {
+      label: "Declarations lodged",
+      count: summary.complete,
+      done: false,
+    },
   ];
+
   return (
     <ol className="space-y-0">
       {steps.map((s, i) => (
@@ -231,7 +310,7 @@ function MilestoneTimeline({ shipments }: { shipments: OceanShipment[] }) {
               )}
             >
               {s.done ? (
-                <Check className="h-3 w-3" />
+                <CheckCircle2 className="h-3 w-3" />
               ) : (
                 <CircleDot className="h-3 w-3" />
               )}
@@ -258,7 +337,7 @@ function MilestoneTimeline({ shipments }: { shipments: OceanShipment[] }) {
   );
 }
 
-/* ── Usage chart + control panel ──────────────────────────── */
+/* ── Usage chart + control panel ─────────────────────────────────────────── */
 
 const USAGE = [
   { day: "Mon", scanned: 28 },

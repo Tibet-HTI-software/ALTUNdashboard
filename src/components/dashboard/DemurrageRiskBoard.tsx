@@ -1,6 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertTriangle, Anchor, Clock, Container, Ship } from "lucide-react";
+import {
+  AlertCircle,
+  AlertTriangle,
+  Anchor,
+  CheckCircle2,
+  Clock,
+  Container,
+  Loader2,
+  MailWarning,
+  Ship,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   getFreeTimeStatus,
@@ -8,6 +18,15 @@ import {
   type OceanShipment,
 } from "@/lib/dashboard/api";
 import { useDemurrageThresholds } from "@/lib/dashboard/demurrage";
+import {
+  generateAiDraft,
+  callSendAiWarning,
+  type SendState,
+} from "@/lib/dashboard/aiWarning";
+import { demoSuccess } from "@/lib/dashboard/demo";
+import { useAuth } from "@/lib/auth/AuthContext";
+import { useUiSounds } from "@/hooks/useUiSounds";
+import { supabase } from "@/lib/supabase";
 
 const RISK_STYLE: Record<
   FreeTimeRisk,
@@ -42,11 +61,11 @@ type Filter = "all" | "atrisk";
 
 /**
  * Ocean Freight Planner board — containers ranked by remaining terminal
- * free time, colour-coded by D&D risk. Cards glide (`layout`) when the
- * filter changes so the planner can focus on what is burning down.
+ * free time, colour-coded by D&D risk.
  *
- * Pass `onSelect` to make cards clickable — clicking a card calls
- * `onSelect(shipment)` so the parent can open the detail drawer.
+ * - Pass `onSelect` to open the full ShipmentDetailDrawer.
+ * - "Alert Client" button on at-risk cards fires the AI warning email
+ *   directly — one click, no drawer required. State is tracked per card.
  */
 export function DemurrageRiskBoard({
   shipments,
@@ -57,6 +76,13 @@ export function DemurrageRiskBoard({
 }) {
   const [filter, setFilter] = useState<Filter>("all");
   const { thresholds } = useDemurrageThresholds();
+  const { user: authUser } = useAuth();
+  const { playSuccess } = useUiSounds();
+
+  /** Per-card send states: shipment.id → SendState */
+  const [alertStates, setAlertStates] = useState<Record<string, SendState>>(
+    {},
+  );
 
   // Re-render every 60s so the free-time countdown stays live.
   const [, setTick] = useState(0);
@@ -85,6 +111,71 @@ export function DemurrageRiskBoard({
 
   const visible = ranked.filter((r) =>
     filter === "all" ? true : r.ft.risk !== "healthy",
+  );
+
+  /* ── Alert client handler ─────────────────────────────────────────────── */
+
+  const handleAlert = useCallback(
+    async (s: OceanShipment, ft: ReturnType<typeof getFreeTimeStatus>) => {
+      const id = s.id;
+
+      // Guard — already in-flight or sent
+      const current = alertStates[id];
+      if (
+        current?.status === "approving" ||
+        current?.status === "sent"
+      )
+        return;
+
+      setAlertStates((prev) => ({ ...prev, [id]: { status: "approving" } }));
+
+      /* Demo / mock bypass — no real user session */
+      if (!authUser || (authUser as { mock?: boolean }).mock) {
+        await new Promise((r) => setTimeout(r, 1500));
+        setAlertStates((prev) => ({ ...prev, [id]: { status: "sent" } }));
+        playSuccess();
+        demoSuccess(
+          "AI warning sent",
+          `Alert email drafted for ${s.containerNumber} · ${s.trader}.`,
+        );
+        return;
+      }
+
+      /* Live path — call edge function */
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const jwt = sessionData?.session?.access_token ?? "";
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+
+        const result = await callSendAiWarning(s, ft, jwt, supabaseUrl);
+
+        if (result.ok) {
+          setAlertStates((prev) => ({
+            ...prev,
+            [id]: { status: "sent", messageId: result.messageId },
+          }));
+          playSuccess();
+          demoSuccess(
+            "AI warning sent",
+            `Alert email sent for ${s.containerNumber}.`,
+          );
+        } else {
+          setAlertStates((prev) => ({
+            ...prev,
+            [id]: { status: "failed", error: result.error ?? "Send failed." },
+          }));
+        }
+      } catch (err) {
+        setAlertStates((prev) => ({
+          ...prev,
+          [id]: {
+            status: "failed",
+            error: err instanceof Error ? err.message : "Unexpected error.",
+          },
+        }));
+      }
+    },
+    [alertStates, authUser, playSuccess],
   );
 
   return (
@@ -148,6 +239,10 @@ export function DemurrageRiskBoard({
         <AnimatePresence mode="popLayout">
           {visible.map(({ s, ft }) => {
             const style = RISK_STYLE[ft.risk];
+            const alertState: SendState =
+              alertStates[s.id] ?? { status: "idle" };
+            const showAlert = ft.risk !== "healthy";
+
             return (
               <motion.li
                 key={s.id}
@@ -177,8 +272,9 @@ export function DemurrageRiskBoard({
                     : undefined
                 }
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
+                {/* ── Card header ── */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <Container className="h-4 w-4 text-brand shrink-0" />
                       <span className="font-mono text-sm font-semibold text-foreground">
@@ -192,17 +288,35 @@ export function DemurrageRiskBoard({
                       {s.trader} · {s.commodity}
                     </p>
                   </div>
-                  <span
-                    className={cn(
-                      "inline-flex items-center gap-1.5 rounded-full border px-2.5 h-7 text-[0.7rem] font-semibold shrink-0",
-                      style.chip,
+
+                  {/* Risk chip + Alert button group */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-full border px-2.5 h-7 text-[0.7rem] font-semibold",
+                        style.chip,
+                      )}
+                    >
+                      <Clock className="h-3 w-3" />
+                      {ft.label}
+                    </span>
+
+                    {/* Alert Client button — visible for non-healthy cards */}
+                    {showAlert && (
+                      <AlertButton
+                        state={alertState}
+                        draft={generateAiDraft(s, ft)}
+                        onAlert={(e) => {
+                          e.stopPropagation(); // don't trigger onSelect
+                          void handleAlert(s, ft);
+                        }}
+                        traderEmail={s.traderEmail}
+                      />
                     )}
-                  >
-                    <Clock className="h-3 w-3" />
-                    {ft.label}
-                  </span>
+                  </div>
                 </div>
 
+                {/* ── Card fields ── */}
                 <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
                   <Field
                     icon={<Ship className="h-3 w-3" />}
@@ -221,11 +335,17 @@ export function DemurrageRiskBoard({
                   />
                 </div>
 
+                {/* Demurrage accrual banner */}
                 {ft.risk === "demurrage" && (
                   <div className="mt-3 flex items-center gap-2 rounded-lg bg-rose-500/10 border border-rose-500/25 px-3 py-2 text-xs font-medium text-rose-600 dark:text-rose-300">
                     <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                     {eur(ft.accruedEur)} in demurrage fines already accrued.
                   </div>
+                )}
+
+                {/* Alert send-state feedback strip */}
+                {alertState.status !== "idle" && (
+                  <AlertFeedback state={alertState} />
                 )}
               </motion.li>
             );
@@ -235,6 +355,100 @@ export function DemurrageRiskBoard({
     </div>
   );
 }
+
+/* ── Alert Client icon button ─────────────────────────────────────────────── */
+
+function AlertButton({
+  state,
+  draft,
+  onAlert,
+  traderEmail,
+}: {
+  state: SendState;
+  draft: { subject: string };
+  onAlert: (e: React.MouseEvent) => void;
+  traderEmail: string;
+}) {
+  const sent = state.status === "sent";
+  const busy = state.status === "approving";
+  const failed = state.status === "failed";
+
+  return (
+    <button
+      type="button"
+      onClick={onAlert}
+      disabled={busy || sent}
+      title={
+        sent
+          ? "Alert sent"
+          : failed
+            ? `Retry: ${(state as { error: string }).error}`
+            : `Alert ${traderEmail || "client"} — ${draft.subject}`
+      }
+      aria-label="Alert client via AI email"
+      className={cn(
+        "flex h-7 w-7 items-center justify-center rounded-lg border transition-colors shrink-0",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+        "disabled:cursor-not-allowed",
+        sent
+          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
+          : failed
+            ? "border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-300 hover:bg-rose-500/15"
+            : busy
+              ? "border-brand/30 bg-brand/10 text-brand"
+              : "border-border bg-foreground/[0.03] text-muted-foreground hover:border-amber-500/40 hover:bg-amber-500/[0.06] hover:text-amber-600 dark:hover:text-amber-300",
+      )}
+    >
+      {busy ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      ) : sent ? (
+        <CheckCircle2 className="h-3.5 w-3.5" />
+      ) : failed ? (
+        <AlertCircle className="h-3.5 w-3.5" />
+      ) : (
+        <MailWarning className="h-3.5 w-3.5" />
+      )}
+    </button>
+  );
+}
+
+/* ── Alert feedback strip shown below the card fields ────────────────────── */
+
+function AlertFeedback({ state }: { state: SendState }) {
+  if (state.status === "approving") {
+    return (
+      <div className="mt-3 flex items-center gap-2 rounded-lg border border-brand/20 bg-brand/[0.05] px-3 py-2 text-[0.68rem] text-brand">
+        <Loader2 className="h-3 w-3 animate-spin shrink-0" />
+        Drafting and sending AI alert email…
+      </div>
+    );
+  }
+  if (state.status === "sent") {
+    return (
+      <div className="mt-3 flex items-center gap-2 rounded-lg border border-emerald-500/25 bg-emerald-500/[0.06] px-3 py-2 text-[0.68rem] text-emerald-700 dark:text-emerald-300">
+        <CheckCircle2 className="h-3 w-3 shrink-0" />
+        AI alert email sent to client.
+        {state.messageId && (
+          <span className="font-mono text-[0.6rem] text-muted-foreground ml-auto">
+            {state.messageId}
+          </span>
+        )}
+      </div>
+    );
+  }
+  if (state.status === "failed") {
+    return (
+      <div className="mt-3 flex items-center gap-2 rounded-lg border border-rose-500/25 bg-rose-500/[0.06] px-3 py-2 text-[0.68rem] text-rose-600 dark:text-rose-300">
+        <AlertCircle className="h-3 w-3 shrink-0" />
+        Send failed: {state.error} — click{" "}
+        <MailWarning className="h-3 w-3 inline" /> to retry.
+      </div>
+    );
+  }
+  return null;
+}
+
+/* ── Sub-components ───────────────────────────────────────────────────────── */
 
 function SummaryStat({
   tone,

@@ -14,7 +14,18 @@
 
 import { useEffect, useState } from "react";
 
-export type Role = "ceo" | "planner" | "customs" | "service";
+/**
+ * Internal staff roles — used by the Operations Dashboard (/dashboard).
+ * `client` is a separate audience — used by the Client Portal (/portal).
+ * Both share this union so AuthContext and route guards handle them uniformly.
+ */
+export type Role =
+  | "ceo"
+  | "forwarder"
+  | "ops_manager"
+  | "sales_manager"
+  | "inside_sales"
+  | "client";
 
 export const ROLE_KEY = "altun-dashboard-role";
 
@@ -34,38 +45,60 @@ export interface RoleMeta {
   person: string;
 }
 
+/**
+ * All previewable roles — used by the dashboard role-switcher.
+ * Internal staff roles come first; the `client` entry is appended last
+ * so the dropdown can render a visual separator before it.
+ */
 export const ROLES: RoleMeta[] = [
   {
     value: "ceo",
-    label: "CEO / Management",
-    short: "Management",
-    description: "High-level KPIs, on-time performance and weekly trends.",
+    label: "CEO / Director",
+    short: "Director",
+    description: "High-level KPIs, P&L, on-time performance and executive trends.",
     initials: "HA",
     person: "Huseyin Altun",
   },
   {
-    value: "planner",
-    label: "Ocean Freight Planner",
-    short: "Planner",
-    description: "Port operations and the Demurrage & Detention risk board.",
+    value: "forwarder",
+    label: "Freight Forwarder",
+    short: "Forwarder",
+    description: "A-to-Z dossier management: order entry, booking, customs & invoicing.",
     initials: "DP",
     person: "Daan Prins",
   },
   {
-    value: "customs",
-    label: "Customs Declarant",
-    short: "Customs",
-    description: "Resolve blocked declarations in the Customs Action Center.",
+    value: "ops_manager",
+    label: "Operations Manager",
+    short: "Ops Manager",
+    description: "Team oversight, exception handling, and SLA compliance monitoring.",
     initials: "FK",
     person: "Fatima Khan",
   },
   {
-    value: "service",
-    label: "Customer Service",
-    short: "Service",
-    description: "Answer client emails with AI-drafted, data-filled replies.",
+    value: "sales_manager",
+    label: "Sales Manager",
+    short: "Sales Mgr",
+    description: "External pricing, carrier rate negotiation, and key account management.",
+    initials: "RV",
+    person: "Roel van Dam",
+  },
+  {
+    value: "inside_sales",
+    label: "Inside Sales / CS",
+    short: "Inside Sales",
+    description: "Quote handling, client communication and booking confirmations.",
     initials: "LV",
     person: "Lotte Visser",
+  },
+  // ── Client Portal demo entry ───────────────────────────────────────────
+  {
+    value: "client",
+    label: "Client Portal Demo",
+    short: "Client",
+    description: "Shipment tracker and invoice overview — client-facing portal.",
+    initials: "CL",
+    person: "Demo Client",
   },
 ];
 
@@ -74,7 +107,14 @@ export function getRoleMeta(role: Role): RoleMeta {
 }
 
 function isRole(v: unknown): v is Role {
-  return v === "ceo" || v === "planner" || v === "customs" || v === "service";
+  return (
+    v === "ceo" ||
+    v === "forwarder" ||
+    v === "ops_manager" ||
+    v === "sales_manager" ||
+    v === "inside_sales" ||
+    v === "client"
+  );
 }
 
 /** SSR-safe read. Returns "ceo" on the server. */

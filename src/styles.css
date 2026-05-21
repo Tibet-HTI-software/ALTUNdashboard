@@ -508,3 +508,68 @@
   background: var(--muted-foreground);
   background-clip: content-box;
 }
+
+/* ── Vessel pulse markers (Portal Fleet Globe) ───────────────────────────── */
+@keyframes vessel-pulse {
+  0%   { transform: scale(1);   opacity: 0.75; }
+  70%  { transform: scale(2.8); opacity: 0; }
+  100% { transform: scale(2.8); opacity: 0; }
+}
+
+.vessel-marker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 10px;
+  height: 10px;
+}
+
+.vessel-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand);
+  box-shadow: 0 0 6px 2px oklch(from var(--brand) l c h / 0.55);
+  position: relative;
+  z-index: 2;
+  flex-shrink: 0;
+}
+
+.vessel-ring {
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 1.5px solid oklch(from var(--brand) l c h / 0.55);
+  animation: vessel-pulse 2s ease-out infinite;
+}
+
+.vessel-marker--focused .vessel-dot {
+  width: 10px;
+  height: 10px;
+  background: #34d399;
+  box-shadow: 0 0 9px 3px rgb(52 211 153 / 0.55);
+}
+
+.vessel-marker--focused .vessel-ring {
+  border-color: rgb(52 211 153 / 0.55);
+  animation-duration: 1.4s;
+}
+
+.vessel-label {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 0.55rem;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 2px 5px;
+  border-radius: 3px;
+  pointer-events: none;
+  z-index: 10;
+}

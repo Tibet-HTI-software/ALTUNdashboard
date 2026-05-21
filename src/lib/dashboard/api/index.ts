@@ -23,3 +23,7 @@ export * from "./reports.api";
 export * from "./settings.api";
 export * from "./oceanFreight.api";
 export * from "./auditLogs.api";
+export * from "./communications.api";
+export * from "./tasks.api";
+export * from "./finance.api";
+export * from "./portal.api";

@@ -49,7 +49,14 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 function isRole(v: unknown): v is Role {
-  return v === "ceo" || v === "planner" || v === "customs" || v === "service";
+  return (
+    v === "ceo" ||
+    v === "forwarder" ||
+    v === "ops_manager" ||
+    v === "sales_manager" ||
+    v === "inside_sales" ||
+    v === "client"
+  );
 }
 
 /** Reads the dashboard role from a Supabase user's metadata. */

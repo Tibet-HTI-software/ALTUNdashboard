@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { requireRoles } from "@/lib/dashboard/routeGuards";
+import { ROUTE_ROLES } from "@/lib/dashboard/roles.config";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
+  Calculator,
   Check,
+  FileText,
   Loader2,
   Plus,
   Search,
@@ -17,6 +21,7 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { LoadingState, ErrorState } from "@/components/dashboard/AsyncStates";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { NewQuoteModal } from "@/components/dashboard/NewQuoteModal";
+import { QuoteRateCalculator } from "@/components/dashboard/QuoteRateCalculator";
 import { getQuotes, updateQuoteStatus, useAsyncData } from "@/lib/dashboard/api";
 import type { Quote } from "@/lib/dashboard/types";
 import { useGlobalSearch } from "@/lib/dashboard/search";
@@ -24,6 +29,7 @@ import { useT } from "@/lib/dashboard/i18n";
 import { demoError } from "@/lib/dashboard/demo";
 
 export const Route = createFileRoute("/dashboard/quotes")({
+  beforeLoad: () => requireRoles(ROUTE_ROLES.quotes),
   head: () => ({ meta: [{ title: "Quotes — Altun Logistics Operations" }] }),
   component: QuotesPage,
 });
@@ -51,6 +57,7 @@ function QuotesPage() {
   const { query } = useGlobalSearch();
   const t = useT();
 
+  const [tab, setTab] = useState<"quotes" | "calculator">("quotes");
   const [openId, setOpenId] = useState<string | null>(null);
   const [decisions, setDecisions] = useState<Record<string, Decision>>({});
   /** ID of the quote currently being approved/declined (shows spinner). */
@@ -98,22 +105,50 @@ function QuotesPage() {
   }
 
   const header = (
-    <div className="mb-5 flex items-start justify-between gap-4">
-      <div>
-        <h1 className="font-display text-2xl sm:text-[1.75rem] font-bold text-foreground tracking-tight">
-          {t("page.quotes.title")}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t("page.quotes.sub")}
-        </p>
+    <div className="mb-5">
+      <div className="flex items-start justify-between gap-4 mb-4">
+        <div>
+          <h1 className="font-display text-2xl sm:text-[1.75rem] font-bold text-foreground tracking-tight">
+            {t("page.quotes.title")}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t("page.quotes.sub")}
+          </p>
+        </div>
+        {tab === "quotes" && (
+          <button
+            type="button"
+            onClick={() => setNewQuoteOpen(true)}
+            className="shrink-0 inline-flex items-center gap-1.5 h-9 rounded-lg bg-brand text-white px-3.5 text-sm font-semibold hover:bg-brand-strong transition-colors shadow-[0_4px_16px_-6px_var(--brand)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+          >
+            <Plus className="h-4 w-4" /> New Quote
+          </button>
+        )}
       </div>
-      <button
-        type="button"
-        onClick={() => setNewQuoteOpen(true)}
-        className="shrink-0 inline-flex items-center gap-1.5 h-9 rounded-lg bg-brand text-white px-3.5 text-sm font-semibold hover:bg-brand-strong transition-colors shadow-[0_4px_16px_-6px_var(--brand)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-      >
-        <Plus className="h-4 w-4" /> New Quote
-      </button>
+      {/* Tab bar */}
+      <div className="flex items-center rounded-xl border border-border bg-foreground/[0.03] p-1 w-fit gap-0.5">
+        {(
+          [
+            { key: "quotes", label: "Open Quotes", icon: FileText },
+            { key: "calculator", label: "Rate Calculator", icon: Calculator },
+          ] as const
+        ).map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setTab(key)}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand",
+              tab === key
+                ? "bg-background border border-border text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <Icon className="h-3.5 w-3.5" />
+            {label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 
@@ -138,35 +173,54 @@ function QuotesPage() {
     <DashboardLayout>
       {header}
 
-      <div className="flex items-center gap-2 mb-4 text-xs text-muted-foreground">
-        {query.trim() && <Search className="h-3.5 w-3.5 text-brand" />}
-        <span className="font-semibold text-foreground tabular-nums">
-          {filtered.length}
-        </span>
-        {t("common.results")}
-      </div>
-
-      <div className="max-h-[calc(100vh-17rem)] overflow-y-auto scroll-thin pr-1">
-        <div className="grid gap-3 lg:grid-cols-2">
-          {filtered.map((q, i) => (
-            <QuoteCard
-              key={q.id}
-              q={q}
-              index={i}
-              decision={decisions[q.id]}
-              onOpen={() => setOpenId(q.id)}
-            />
-          ))}
-        </div>
-        {filtered.length === 0 && (
-          <EmptyState
-            title="No open quotes"
-            description="Nothing awaiting review — new spot and contract rate requests will appear here."
-            actionLabel="New Quote"
-            onAction={() => setNewQuoteOpen(true)}
-          />
+      <AnimatePresence mode="wait">
+        {tab === "calculator" && (
+          <motion.div
+            key="calc"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+            className="max-w-2xl"
+          >
+            <QuoteRateCalculator />
+          </motion.div>
         )}
-      </div>
+      </AnimatePresence>
+
+      {tab === "quotes" && (
+        <>
+          <div className="flex items-center gap-2 mb-4 text-xs text-muted-foreground">
+            {query.trim() && <Search className="h-3.5 w-3.5 text-brand" />}
+            <span className="font-semibold text-foreground tabular-nums">
+              {filtered.length}
+            </span>
+            {t("common.results")}
+          </div>
+
+          <div className="max-h-[calc(100vh-22rem)] overflow-y-auto scroll-thin pr-1">
+            <div className="grid gap-3 lg:grid-cols-2">
+              {filtered.map((q, i) => (
+                <QuoteCard
+                  key={q.id}
+                  q={q}
+                  index={i}
+                  decision={decisions[q.id]}
+                  onOpen={() => setOpenId(q.id)}
+                />
+              ))}
+            </div>
+            {filtered.length === 0 && (
+              <EmptyState
+                title="No open quotes"
+                description="Nothing awaiting review — new spot and contract rate requests will appear here."
+                actionLabel="New Quote"
+                onAction={() => setNewQuoteOpen(true)}
+              />
+            )}
+          </div>
+        </>
+      )}
 
       <AnimatePresence>
         {open && (

@@ -1,4 +1,7 @@
+import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { requireRoles } from "@/lib/dashboard/routeGuards";
+import { ROUTE_ROLES } from "@/lib/dashboard/roles.config";
 import {
   AlertTriangle,
   Info,
@@ -20,10 +23,11 @@ import {
 import { DataTable, type Column } from "@/components/dashboard/DataTable";
 import { getWarehouseOverview, useAsyncData } from "@/lib/dashboard/api";
 import { LoadingState, ErrorState } from "@/components/dashboard/AsyncStates";
+import { NewHandlingJobModal } from "@/components/dashboard/NewHandlingJobModal";
 import type { HandlingJob } from "@/lib/dashboard/types";
-import { demoAction } from "@/lib/dashboard/demo";
 
 export const Route = createFileRoute("/dashboard/warehouse")({
+  beforeLoad: () => requireRoles(ROUTE_ROLES.warehouse),
   head: () => ({
     meta: [{ title: "Warehouse & Operations — Altun Logistics" }],
   }),
@@ -45,6 +49,7 @@ const jobTypeTone: Record<HandlingJob["type"], StatusTone> = {
 };
 
 function WarehousePage() {
+  const [newJobOpen, setNewJobOpen] = useState(false);
   const { data, loading, error, reload } = useAsyncData(
     getWarehouseOverview,
     [],
@@ -61,7 +66,7 @@ function WarehousePage() {
       actions={
         <button
           type="button"
-          onClick={() => demoAction("this would open the schedule-job form.")}
+          onClick={() => setNewJobOpen(true)}
           className="inline-flex items-center gap-1.5 h-9 rounded-lg bg-brand text-white px-3.5 text-sm font-semibold hover:bg-brand-strong transition-colors shadow-[0_4px_16px_-6px_var(--brand)]"
         >
           <Plus className="h-3.5 w-3.5" /> Schedule job
@@ -284,6 +289,12 @@ function WarehousePage() {
         </div>
         <DataTable rows={handlingJobs} columns={columns} rowKey={(j) => j.id} />
       </section>
+
+      <NewHandlingJobModal
+        open={newJobOpen}
+        onClose={() => setNewJobOpen(false)}
+        onCreated={reload}
+      />
     </DashboardLayout>
   );
 }

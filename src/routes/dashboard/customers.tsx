@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { requireRoles } from "@/lib/dashboard/routeGuards";
+import { ROUTE_ROLES } from "@/lib/dashboard/roles.config";
 import { motion } from "framer-motion";
 import {
   ArrowDownToLine,
@@ -26,6 +28,7 @@ import { useDemurrageThresholds } from "@/lib/dashboard/demurrage";
 import { useT } from "@/lib/dashboard/i18n";
 
 export const Route = createFileRoute("/dashboard/customers")({
+  beforeLoad: () => requireRoles(ROUTE_ROLES.customers),
   head: () => ({
     meta: [{ title: "Customers — Altun Logistics Operations" }],
   }),

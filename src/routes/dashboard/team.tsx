@@ -1,4 +1,7 @@
+import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { requireRoles } from "@/lib/dashboard/routeGuards";
+import { ROUTE_ROLES } from "@/lib/dashboard/roles.config";
 import { Plus } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { DashboardPageHeader } from "@/components/dashboard/DashboardPageHeader";
@@ -12,16 +15,18 @@ import {
   useAsyncData,
 } from "@/lib/dashboard/api";
 import { LoadingState, ErrorState } from "@/components/dashboard/AsyncStates";
-import { demoAction } from "@/lib/dashboard/demo";
+import { InviteMemberModal } from "@/components/dashboard/InviteMemberModal";
 import type { Task } from "@/lib/dashboard/types";
 import { formatDate, relativeDays } from "@/lib/dashboard/format";
 
 export const Route = createFileRoute("/dashboard/team")({
+  beforeLoad: () => requireRoles(ROUTE_ROLES.team),
   head: () => ({ meta: [{ title: "Team — Altun Logistics Operations" }] }),
   component: TeamPage,
 });
 
 function TeamPage() {
+  const [inviteOpen, setInviteOpen] = useState(false);
   const members = useAsyncData(getTeamMembers, []);
   const taskList = useAsyncData(getTeamTasks, []);
   const loading = members.loading || taskList.loading;
@@ -98,9 +103,7 @@ function TeamPage() {
         actions={
           <button
             type="button"
-            onClick={() =>
-              demoAction("this would send a team invitation email.")
-            }
+            onClick={() => setInviteOpen(true)}
             className="inline-flex items-center gap-1.5 h-9 rounded-md bg-brand text-white px-3.5 text-sm font-medium hover:bg-brand-strong transition-colors"
           >
             <Plus className="h-3.5 w-3.5" /> Invite member
@@ -158,6 +161,12 @@ function TeamPage() {
           </section>
         </div>
       )}
+
+      <InviteMemberModal
+        open={inviteOpen}
+        onClose={() => setInviteOpen(false)}
+        onCreated={members.reload}
+      />
     </DashboardLayout>
   );
 }

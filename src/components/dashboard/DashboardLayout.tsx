@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { DashboardSidebar } from "./DashboardSidebar";
 import { DashboardTopbar } from "./DashboardTopbar";
 import { CommandMenu } from "./CommandMenu";
+import { AiCoPilot } from "./AiCoPilot";
 
 const COLLAPSE_KEY = "altun-dashboard-sidebar-collapsed";
 
@@ -101,6 +102,8 @@ export function DashboardLayout({ children, lockViewport = false }: Props) {
       </div>
 
       <CommandMenu />
+      {/* AI Co-Pilot — global, all staff roles */}
+      <AiCoPilot />
     </div>
   );
 }

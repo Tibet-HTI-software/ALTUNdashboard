@@ -1,17 +1,21 @@
 import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, Plus } from "lucide-react";
+import { requireRoles } from "@/lib/dashboard/routeGuards";
+import { ROUTE_ROLES } from "@/lib/dashboard/roles.config";
+import { ArrowRight, Plus, ScanSearch } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { DashboardPageHeader } from "@/components/dashboard/DashboardPageHeader";
 import { DocumentChecklist } from "@/components/dashboard/DocumentChecklist";
 import { StatusBadge, priorityTone } from "@/components/dashboard/StatusBadge";
 import { getCustomsFiles, useAsyncData } from "@/lib/dashboard/api";
 import { LoadingState, ErrorState } from "@/components/dashboard/AsyncStates";
-import { demoAction } from "@/lib/dashboard/demo";
+import { NewCustomsFileModal } from "@/components/dashboard/NewCustomsFileModal";
+import { AiDocDropzoneModal } from "@/components/dashboard/AiDocDropzone";
 import type { CustomsFile } from "@/lib/dashboard/types";
 import { formatDate, relativeDays } from "@/lib/dashboard/format";
 
 export const Route = createFileRoute("/dashboard/customs")({
+  beforeLoad: () => requireRoles(ROUTE_ROLES.customs),
   head: () => ({ meta: [{ title: "Customs & Documents — Altun Logistics" }] }),
   component: CustomsPage,
 });
@@ -31,6 +35,8 @@ function stageTone(stage: CustomsFile["stage"]) {
 
 function CustomsPage() {
   const [openId, setOpenId] = useState<string>("");
+  const [newFileOpen, setNewFileOpen] = useState(false);
+  const [parseOpen, setParseOpen] = useState(false);
   const {
     data: customsFiles,
     loading,
@@ -56,15 +62,22 @@ function CustomsPage() {
           { label: "Customs" },
         ]}
         actions={
-          <button
-            type="button"
-            onClick={() =>
-              demoAction("this would open the new customs file form.")
-            }
-            className="inline-flex items-center gap-1.5 h-9 rounded-md bg-brand text-white px-3.5 text-sm font-medium hover:bg-brand-strong transition-colors"
-          >
-            <Plus className="h-3.5 w-3.5" /> New file
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setParseOpen(true)}
+              className="inline-flex items-center gap-1.5 h-9 rounded-md border border-brand/30 bg-brand/[0.06] text-brand px-3.5 text-sm font-medium hover:border-brand/50 hover:bg-brand/[0.12] transition-colors"
+            >
+              <ScanSearch className="h-3.5 w-3.5" /> AI Parse
+            </button>
+            <button
+              type="button"
+              onClick={() => setNewFileOpen(true)}
+              className="inline-flex items-center gap-1.5 h-9 rounded-md bg-brand text-white px-3.5 text-sm font-medium hover:bg-brand-strong transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" /> New file
+            </button>
+          </div>
         }
       />
 
@@ -210,6 +223,12 @@ function CustomsPage() {
           </section>
         </div>
       )}
+      <NewCustomsFileModal
+        open={newFileOpen}
+        onClose={() => setNewFileOpen(false)}
+        onCreated={reload}
+      />
+      <AiDocDropzoneModal open={parseOpen} onClose={() => setParseOpen(false)} />
     </DashboardLayout>
   );
 }

@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { ArrowUpDown, Container as ContainerIcon, Search } from "lucide-react";
+import { requireRoles } from "@/lib/dashboard/routeGuards";
+import { ROUTE_ROLES } from "@/lib/dashboard/roles.config";
+import { ArrowUpDown, Container as ContainerIcon, Download, Search } from "lucide-react";
+import { AiDocDropzoneFab } from "@/components/dashboard/AiDocDropzone";
+import { downloadFile } from "@/lib/dashboard/exportCsv";
+import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
@@ -20,6 +25,7 @@ import { useRole } from "@/lib/dashboard/role";
 import { useT } from "@/lib/dashboard/i18n";
 
 export const Route = createFileRoute("/dashboard/shipments")({
+  beforeLoad: () => requireRoles(ROUTE_ROLES.shipments),
   head: () => ({
     meta: [{ title: "Shipments — Altun Logistics Operations" }],
   }),
@@ -54,6 +60,34 @@ type SortKey =
   | "trader"
   | "freeTime";
 
+function generateShipmentCsv(shipments: OceanShipment[]): string {
+  const header =
+    "Booking ID,B/L Number,Container,Type,Direction,Carrier,Vessel,Voyage,POL,POD,Terminal,Trader,Phase,ETD,ETA,Free Days\n";
+  const rows = shipments
+    .map((s) =>
+      [
+        s.id,
+        s.blNumber,
+        s.containerNumber,
+        s.containerType,
+        s.direction,
+        s.carrier,
+        `"${s.vessel}"`,
+        s.voyage,
+        s.pol,
+        s.pod,
+        `"${s.terminal}"`,
+        `"${s.trader}"`,
+        s.phase,
+        s.etd,
+        s.eta,
+        s.freeDaysTotal,
+      ].join(","),
+    )
+    .join("\n");
+  return header + rows;
+}
+
 function ShipmentsPage() {
   const { data, loading, error, reload } = useAsyncData(getOceanShipments, []);
   const { query } = useGlobalSearch();
@@ -71,7 +105,7 @@ function ShipmentsPage() {
 
   // Customs Declarant lands on blocked shipments first.
   useEffect(() => {
-    if (role === "customs") setPhase("Customs Hold");
+    if (role === "forwarder") setPhase("Customs Hold");
   }, [role]);
 
   const rows = useMemo(() => data ?? [], [data]);
@@ -121,14 +155,34 @@ function ShipmentsPage() {
     );
   }
 
+  function handleExportCsv() {
+    const csv = generateShipmentCsv(filtered);
+    const date = new Date().toISOString().slice(0, 10);
+    downloadFile(csv, `altun-shipments-${date}.csv`, "text/csv;charset=utf-8");
+    toast.success("CSV exported", {
+      description: `${filtered.length} shipment${filtered.length !== 1 ? "s" : ""} downloaded.`,
+    });
+  }
+
   const header = (
-    <div className="mb-5">
-      <h1 className="font-display text-2xl sm:text-[1.75rem] font-bold text-foreground tracking-tight">
-        {t("page.shipments.title")}
-      </h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        {t("page.shipments.sub")}
-      </p>
+    <div className="mb-5 flex items-start justify-between gap-4">
+      <div>
+        <h1 className="font-display text-2xl sm:text-[1.75rem] font-bold text-foreground tracking-tight">
+          {t("page.shipments.title")}
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {t("page.shipments.sub")}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={handleExportCsv}
+        disabled={loading || filtered.length === 0}
+        className="shrink-0 inline-flex items-center gap-1.5 h-9 rounded-lg border border-border bg-foreground/[0.04] px-3.5 text-sm font-medium text-foreground hover:border-brand hover:text-brand transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+      >
+        <Download className="h-3.5 w-3.5" />
+        Export CSV
+      </button>
     </div>
   );
 
@@ -258,6 +312,7 @@ function ShipmentsPage() {
           )}
         </div>
       </div>
+      <AiDocDropzoneFab />
     </DashboardLayout>
   );
 }

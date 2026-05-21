@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
@@ -5,12 +6,16 @@ import {
   Truck,
   Train,
   Building2,
-  Package,
+  FolderOpen,
+  Mail,
   ShieldCheck,
   Pencil,
   CheckCircle2,
   FileEdit,
 } from "lucide-react";
+import { motion } from "framer-motion";
+import { DocumentVault } from "@/components/dashboard/DocumentVault";
+import { ShipmentComms } from "@/components/dashboard/ShipmentComms";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { DashboardPageHeader } from "@/components/dashboard/DashboardPageHeader";
 import { Timeline, type TimelineStep } from "@/components/dashboard/Timeline";
@@ -29,6 +34,7 @@ import {
 } from "@/lib/dashboard/api";
 import { LoadingState, ErrorState } from "@/components/dashboard/AsyncStates";
 import { formatDate } from "@/lib/dashboard/format";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/dashboard/shipments/$id")({
   head: ({ params }) => ({
@@ -37,8 +43,11 @@ export const Route = createFileRoute("/dashboard/shipments/$id")({
   component: ShipmentDetailPage,
 });
 
+type DetailTab = "vault" | "comms";
+
 function ShipmentDetailPage() {
   const { id } = Route.useParams();
+  const [activeTab, setActiveTab] = useState<DetailTab>("vault");
   const shipment = useAsyncData(() => getShipmentById(id), [id]);
   const customsAll = useAsyncData(getCustomsFiles, []);
 
@@ -362,35 +371,79 @@ function ShipmentDetailPage() {
             </p>
           </section>
 
-          <section className="card-premium rounded-2xl p-5">
-            <div className="flex items-center gap-2 mb-2">
-              <Package className="h-4 w-4 text-brand" />
-              <h2 className="font-display font-bold text-navy-deep text-sm">
-                Related documents
-              </h2>
-            </div>
-            <ul className="space-y-2 text-sm">
-              <li className="flex items-center justify-between">
-                <span className="text-muted-foreground">
-                  Booking confirmation
-                </span>
-                <span className="text-xs text-brand font-semibold">PDF</span>
-              </li>
-              <li className="flex items-center justify-between">
-                <span className="text-muted-foreground">
-                  Carrier rate sheet
-                </span>
-                <span className="text-xs text-brand font-semibold">XLSX</span>
-              </li>
-              <li className="flex items-center justify-between">
-                <span className="text-muted-foreground">
-                  Insurance certificate
-                </span>
-                <span className="text-xs text-brand font-semibold">PDF</span>
-              </li>
-            </ul>
-          </section>
         </aside>
+      </div>
+
+      {/* ── Full-width tabbed panel: Document Vault | Communications ─── */}
+      <div className="mt-5 card-premium rounded-2xl overflow-hidden">
+        {/* Tab bar */}
+        <div className="flex items-center gap-0 border-b border-border bg-foreground/[0.02] px-4">
+          {(
+            [
+              {
+                key: "vault" as DetailTab,
+                icon: <FolderOpen className="h-3.5 w-3.5" />,
+                label: "Document Vault",
+              },
+              {
+                key: "comms" as DetailTab,
+                icon: <Mail className="h-3.5 w-3.5" />,
+                label: "Communications",
+                badge: 3,
+              },
+            ] satisfies { key: DetailTab; icon: React.ReactNode; label: string; badge?: number }[]
+          ).map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+              className={cn(
+                "relative flex items-center gap-2 px-4 py-3 text-[0.78rem] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-inset focus-visible:ring-2 focus-visible:ring-brand",
+                activeTab === tab.key
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {tab.icon}
+              {tab.label}
+              {tab.badge != null && (
+                <span
+                  className={cn(
+                    "inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full px-1 text-[0.55rem] font-bold",
+                    activeTab === tab.key
+                      ? "bg-brand text-white"
+                      : "bg-foreground/10 text-muted-foreground",
+                  )}
+                >
+                  {tab.badge}
+                </span>
+              )}
+              {/* Active underline */}
+              {activeTab === tab.key && (
+                <motion.span
+                  layoutId="tab-indicator"
+                  className="absolute bottom-0 left-0 right-0 h-[2px] bg-brand rounded-full"
+                  transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                />
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Tab panel */}
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+          className="p-5"
+        >
+          {activeTab === "vault" ? (
+            <DocumentVault shipmentId={s.id} />
+          ) : (
+            <ShipmentComms shipmentId={s.id} />
+          )}
+        </motion.div>
       </div>
     </DashboardLayout>
   );

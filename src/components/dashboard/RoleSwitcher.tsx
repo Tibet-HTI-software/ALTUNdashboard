@@ -1,12 +1,78 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, ChevronDown, LogOut } from "lucide-react";
+import { Check, ChevronDown, ExternalLink, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ROLES, getRoleMeta, useRole } from "@/lib/dashboard/role";
+import { ROLES, getRoleMeta, useRole, type Role } from "@/lib/dashboard/role";
 import { useT } from "@/lib/dashboard/i18n";
 import { useUiSounds } from "@/hooks/useUiSounds";
 import { useAuth } from "@/lib/auth/AuthContext";
+
+/* ── RoleItem ────────────────────────────────────────────────────────────── */
+
+function RoleItem({
+  r,
+  isActive,
+  onSelect,
+  isPortal = false,
+}: {
+  r: (typeof ROLES)[number];
+  isActive: boolean;
+  onSelect: (v: Role) => void;
+  isPortal?: boolean;
+}) {
+  return (
+    <li>
+      <button
+        type="button"
+        role="menuitemradio"
+        aria-checked={isActive}
+        onClick={() => onSelect(r.value)}
+        className={cn(
+          "w-full flex items-start gap-3 rounded-lg px-2.5 py-2.5 text-left transition-colors",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand",
+          isActive
+            ? isPortal
+              ? "bg-violet-500/[0.1]"
+              : "bg-brand/[0.1]"
+            : "hover:bg-foreground/[0.05]",
+        )}
+      >
+        <span
+          className={cn(
+            "flex h-8 w-8 items-center justify-center rounded-lg font-display font-semibold text-[0.7rem] shrink-0 mt-0.5",
+            isActive
+              ? isPortal
+                ? "bg-gradient-to-br from-violet-500 to-violet-700 text-white"
+                : "bg-gradient-to-br from-brand to-brand-strong text-white"
+              : "bg-foreground/[0.06] text-muted-foreground",
+          )}
+        >
+          {r.initials}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-1.5">
+            <span className="text-sm font-semibold text-foreground">
+              {r.label}
+            </span>
+            {isActive && !isPortal && (
+              <Check className="h-3.5 w-3.5 text-brand" />
+            )}
+            {isActive && isPortal && (
+              <Check className="h-3.5 w-3.5 text-violet-500" />
+            )}
+            {!isActive && isPortal && (
+              <ExternalLink className="h-3 w-3 text-muted-foreground/40" />
+            )}
+          </span>
+          <span className="block text-xs text-muted-foreground leading-snug mt-0.5">
+            {r.description}
+          </span>
+        </span>
+      </button>
+    </li>
+  );
+}
 
 /**
  * Role-preview switcher for the topbar.
@@ -16,12 +82,18 @@ import { useAuth } from "@/lib/auth/AuthContext";
  * each with a one-line description of what its dashboard view emphasises.
  * The choice is shared app-wide via the `useRole()` store.
  */
+/** Roles shown in the "staff" section above the separator. */
+const STAFF_ROLES = ROLES.filter((r) => r.value !== "client");
+/** The client demo entry rendered below the separator. */
+const CLIENT_ROLE = ROLES.find((r) => r.value === "client")!;
+
 export function RoleSwitcher() {
   const { role, setRole } = useRole();
   const t = useT();
   const { playRoleSwitch } = useUiSounds();
   const { signOut } = useAuth();
   const navigate = useNavigate();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -29,6 +101,25 @@ export function RoleSwitcher() {
     setOpen(false);
     await signOut();
     navigate({ to: "/login" });
+  }
+
+  /**
+   * Switch role and navigate to the correct surface:
+   *  • Selecting "client"  → /portal/shipments
+   *  • Any staff role while on /portal/* → /dashboard
+   *  • Any staff role while already on /dashboard/* → stay (no redirect)
+   */
+  function handleRoleSelect(next: Role) {
+    if (next !== role) playRoleSwitch();
+    setRole(next);
+    setOpen(false);
+
+    if (next === "client") {
+      navigate({ to: "/portal/shipments" });
+    } else if (pathname.startsWith("/portal")) {
+      navigate({ to: "/dashboard" });
+    }
+    // already on /dashboard/* — no redirect needed
   }
 
   const active = getRoleMeta(role);
@@ -95,55 +186,32 @@ export function RoleSwitcher() {
             <p className="px-3 pt-3 pb-1.5 text-[0.6rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground/70">
               {t("role.preview")}
             </p>
+            {/* ── Staff roles ── */}
             <ul className="p-1.5">
-              {ROLES.map((r) => {
-                const isActive = r.value === role;
-                return (
-                  <li key={r.value}>
-                    <button
-                      type="button"
-                      role="menuitemradio"
-                      aria-checked={isActive}
-                      onClick={() => {
-                        if (r.value !== role) playRoleSwitch();
-                        setRole(r.value);
-                        setOpen(false);
-                      }}
-                      className={cn(
-                        "w-full flex items-start gap-3 rounded-lg px-2.5 py-2.5 text-left transition-colors",
-                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand",
-                        isActive
-                          ? "bg-brand/[0.1]"
-                          : "hover:bg-foreground/[0.05]",
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "flex h-8 w-8 items-center justify-center rounded-lg font-display font-semibold text-[0.7rem] shrink-0 mt-0.5",
-                          isActive
-                            ? "bg-gradient-to-br from-brand to-brand-strong text-white"
-                            : "bg-foreground/[0.06] text-muted-foreground",
-                        )}
-                      >
-                        {r.initials}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="flex items-center gap-1.5">
-                          <span className="text-sm font-semibold text-foreground">
-                            {r.label}
-                          </span>
-                          {isActive && (
-                            <Check className="h-3.5 w-3.5 text-brand" />
-                          )}
-                        </span>
-                        <span className="block text-xs text-muted-foreground leading-snug mt-0.5">
-                          {r.description}
-                        </span>
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
+              {STAFF_ROLES.map((r) => (
+                <RoleItem
+                  key={r.value}
+                  r={r}
+                  isActive={r.value === role}
+                  onSelect={handleRoleSelect}
+                />
+              ))}
+            </ul>
+
+            {/* ── Client Portal demo separator ── */}
+            <div className="mx-3 border-t border-border" />
+            <div className="px-3 pt-2 pb-1">
+              <p className="text-[0.58rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground/50">
+                Client Portal Preview
+              </p>
+            </div>
+            <ul className="px-1.5 pb-1.5">
+              <RoleItem
+                r={CLIENT_ROLE}
+                isActive={role === "client"}
+                onSelect={handleRoleSelect}
+                isPortal
+              />
             </ul>
             <p className="px-3 py-2 text-[0.65rem] text-muted-foreground border-t border-border bg-foreground/[0.02]">
               {t("role.previewNote")}

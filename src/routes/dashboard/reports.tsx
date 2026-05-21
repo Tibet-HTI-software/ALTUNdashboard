@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { requireRoles } from "@/lib/dashboard/routeGuards";
+import { ROUTE_ROLES } from "@/lib/dashboard/roles.config";
 import {
   Download,
   FileSpreadsheet,
@@ -33,6 +35,7 @@ import {
 } from "@/lib/dashboard/exportCsv";
 
 export const Route = createFileRoute("/dashboard/reports")({
+  beforeLoad: () => requireRoles(ROUTE_ROLES.reports),
   head: () => ({ meta: [{ title: "Reports — Altun Logistics Operations" }] }),
   component: ReportsPage,
 });
